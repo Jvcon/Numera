@@ -20,4 +20,83 @@ target
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Project-local documentation drafts (kickoff notes)
 docs/kickoff.md
+
+# --- Node / JavaScript / TypeScript ---
+
+# Dependencies
+**/node_modules/
+
+# Build output (Vite, esbuild, tsc)
+**/dist/
+**/build/
+**/.tsbuildinfo
+**/*.tsbuildinfo
+
+# Logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/lerna-debug.log*
+**/.pnpm-store/
+
+# Coverage / test artifacts
+**/coverage/
+**/.nyc_output/
+**/*.lcov
+
+# Cache and runtime data
+**/.cache/
+**/.parcel-cache/
+**/.vite/
+
+# Wrangler / Cloudflare local state
+**/.wrangler/
+**/.dev.vars
+
+# Optional npm/yarn/pnpm lockfile backups (we keep the primary lockfiles tracked)
+**/*.lockb
+**/pnpm-lock.yaml.bak
+
+# --- Environment & secrets ---
+
+# Never commit environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Don't ignore the devcontainer config itself
+!.devcontainer/
+
+# --- Editor / OS ---
+
+# VS Code (allow checked-in workspace settings; ignore local-only state)
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+
+# macOS / Windows / Linux system noise
+.DS_Store
+Thumbs.db
+*~
+
+# --- Misc build artifacts ---
+
+# Generated WASM bindings (built artifacts, not source)
+**/pkg/
+**/*.wasm
+!**/*.wasm-gc
+**/bindings/
+
+# Build artifacts produced by uniffi
+**/target/uniffi/
+
+# Locally built installer scripts
+opencode

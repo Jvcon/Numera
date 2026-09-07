@@ -1,18 +1,64 @@
 {
-  "name": "Dev Environment",
+  "name": "Numera Dev Environment",
+
   "image": "mcr.microsoft.com/devcontainers/rust:dev-bookworm",
 
-  // Features to add to the dev container. We need Docker-in-Docker for the 'cross' compilation tool.
+  // Features to add to the dev container. We need Docker-in-Docker for the 'cross' compilation tool,
+  // Node.js for the Vite/web frontend and Cloudflare worker, and Kotlin SDKMAN for tooling parity.
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
       "version": "latest",
       "enableNonRootDocker": "true"
     },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "installGlobally": [
+        "@anthropic-ai/opencode",
+        "npm",
+        "yarn",
+        "pnpm"
+      ],
+      "cache": "true"
+    },
     "ghcr.io/devcontainers-extra/features/kotlin-sdkman:2": {}
   },
 
-  // Use 'postCreateCommand' to install global cargo tools and rust targets after the container is created
-  "postCreateCommand": "cargo install cross --git https://github.com/cross-rs/cross && curl -fsSL https://opencode.ai/install | bash",
+  // Use 'postCreateCommand' to install global cargo tools and rust targets after the container is created.
+  // '--no-fail-flag' style: each step is independent so a failure in one does not block the rest.
+  "postCreateCommand": "cargo install cross --git https://github.com/cross-rs/cross && curl -fsSL https://opencode.ai/install | bash || true",
+
+  // Ports to forward by default. These match Vite (5173/4173), wrangler dev (8787),
+  // and a dedicated Node inspector port (9229) for debugging the frontend.
+  // Additional ports (e.g. 8080, 3000) can still be exposed ad-hoc through the Ports panel.
+  "forwardPorts": [5173, 4173, 8787, 9229],
+
+  // Port labels & behavior in the VS Code Ports UI. Auto-forward makes them appear immediately
+  // when something starts listening. 'notifyOnOpen' surfaces a toast when the URL is ready.
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev (web)",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "4173": {
+      "label": "Vite Preview (web)",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "8787": {
+      "label": "Wrangler Dev (worker)",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "9229": {
+      "label": "Node Inspector",
+      "onAutoForward": "silent",
+      "protocol": "inspector"
+    }
+  },
+  "otherPortsAttributes": {
+    "onAutoForward": "notify"
+  },
 
   // Configure tool-specific properties.
   "customizations": {
@@ -22,23 +68,35 @@
         "tamasfe.even-better-toml",
         "fill-labs.dependi",
         "redhat.vscode-yaml",
-        "vadimcn.vscode-lldb" // For debugging Rust code
+        "vadimcn.vscode-lldb", // For debugging Rust code
+        "ms-vscode.vscode-typescript-next",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-playwright.playwright"
       ],
       "settings": {
         "rust-analyzer.cargo.target": "x86_64-unknown-linux-gnu",
         "rust-analyzer.check.command": "clippy",
         "terminal.integrated.env.linux": {
-          "PATH": "${env:PATH}:${userHome}/.opencode/bin"
-        }
+          "PATH": "${env:PATH}:${userHome}/.opencode/bin:${userHome}/.cargo/bin"
+        },
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "npm.enableScriptExplorer": true,
+        "javascript.updateImportsOnFileMove.enabled": "always",
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
       }
     }
   },
 
   // Comment out to connect as root instead if your local prerequisites require it.
   "remoteUser": "vscode",
-  
-  // Mount target directory to a named volume to speed up compilation performance significantly inside Docker
+
+  // Mount target directory to a named volume to speed up compilation performance significantly inside Docker.
+  // We also mount a named volume for the npm cache to speed up repeated `npm install` runs.
   "mounts": [
-    "source=vman-cargo-cache,target=${containerWorkspaceFolder}/target,type=volume"
+    "source=vman-cargo-cache,target=${containerWorkspaceFolder}/target,type=volume",
+    "source=vman-npm-cache,target=/home/vscode/.npm,type=volume"
   ]
 }

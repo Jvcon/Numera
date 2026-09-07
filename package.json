@@ -1,0 +1,25 @@
+{
+  "name": "numera",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Numera monorepo - natural-language text cross-platform calculator",
+  "workspaces": [
+    "web",
+    "worker"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "dev:worker": "npm run dev --workspace=worker",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace=web",
+    "build:worker": "npm run build --workspace=worker --if-present",
+    "preview": "npm run preview --workspace=web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules"
+  }
+}

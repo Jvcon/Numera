@@ -1383,11 +1383,9 @@ dependencies = [
 name = "numera-wasm"
 version = "0.1.0"
 dependencies = [
+ "console_error_panic_hook",
  "js-sys",
- "numera-crypto",
  "numera-engine",
- "numera-format",
- "numera-sync",
  "serde",
  "serde_json",
  "wasm-bindgen",

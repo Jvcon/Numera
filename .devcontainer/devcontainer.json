@@ -11,13 +11,8 @@
       "enableNonRootDocker": "true"
     },
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "20",
-      "installGlobally": [
-        "@anthropic-ai/opencode",
-        "npm",
-        "yarn",
-        "pnpm"
-      ],
+      "version": "24",
+      "installGlobally": ["@opencode-ai/cli", "npm", "yarn", "pnpm"],
       "cache": "true"
     },
     "ghcr.io/devcontainers-extra/features/kotlin-sdkman:2": {}
@@ -53,7 +48,7 @@
     "9229": {
       "label": "Node Inspector",
       "onAutoForward": "silent",
-      "protocol": "inspector"
+      "protocol": "http"
     }
   },
   "otherPortsAttributes": {
@@ -80,10 +75,9 @@
         "terminal.integrated.env.linux": {
           "PATH": "${env:PATH}:${userHome}/.opencode/bin:${userHome}/.cargo/bin"
         },
-        "typescript.tsdk": "node_modules/typescript/lib",
-        "typescript.enablePromptUseWorkspaceTsdk": true,
-        "npm.enableScriptExplorer": true,
-        "javascript.updateImportsOnFileMove.enabled": "always",
+        "js/ts.tsdk.path": "node_modules/typescript/lib",
+        "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+        "js/ts.updateImportsOnFileMove.enabled": "always",
         "editor.defaultFormatter": "esbenp.prettier-vscode",
         "editor.formatOnSave": true
       }

@@ -29,7 +29,7 @@ export default {
       const response = await handleWebDAV(request, env);
       return corsMiddleware(response);
     } catch (error) {
-      const response = errorHandler(error);
+      const response = errorHandler(error, env);
       return corsMiddleware(response);
     }
   },

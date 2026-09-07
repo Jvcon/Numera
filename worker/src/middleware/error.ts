@@ -1,5 +1,5 @@
 // 错误处理中间件
-export function errorHandler(error: unknown): Response {
+export function errorHandler(error: unknown, env?: { ENVIRONMENT: string }): Response {
   console.error('Worker error:', error);
 
   if (error instanceof Response) {
@@ -11,7 +11,7 @@ export function errorHandler(error: unknown): Response {
     return new Response(
       JSON.stringify({
         error: error.message,
-        ...(process.env.ENVIRONMENT === 'development' ? { stack: error.stack } : {}),
+        ...(env?.ENVIRONMENT === 'development' ? { stack: error.stack } : {}),
       }),
       {
         status,

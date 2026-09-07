@@ -1,4 +1,4 @@
-import { DeadProperty, PropfindRequest, ProppatchOperation } from '../types';
+import { DeadProperty, PropfindRequest, ProppatchOperation } from '../../types';
 import { DOMParser } from '@xmldom/xmldom';
 
 // 解析 PROPFIND 请求

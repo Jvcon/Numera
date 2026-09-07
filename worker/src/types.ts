@@ -5,6 +5,7 @@ export interface Env {
   KV: KVNamespace;
   JWT_SECRET: string;
   MAIL_FROM: string;
+  RESEND_API_KEY: string;
   ENVIRONMENT: string;
 }
 

@@ -56,14 +56,17 @@ export class AuthError extends Error {
   }
 
   toResponse(): Response {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (this.status === 401) {
+      headers['WWW-Authenticate'] = 'Bearer';
+    }
     return new Response(
       JSON.stringify({ error: this.message }),
       {
         status: this.status,
-        headers: {
-          'Content-Type': 'application/json',
-          'WWW-Authenticate': this.status === 401 ? 'Bearer' : undefined,
-        },
+        headers,
       }
     );
   }

@@ -1,5 +1,5 @@
-import { Env } from '../../types';
-import { WEBDAV_CONFIG } from '../../config';
+import { Env, DeadProperty } from '../types';
+import { WEBDAV_CONFIG, DAV_NAMESPACE, DEAD_PROPERTY_PREFIX } from '../config';
 import { requireAuth, AuthError } from '../auth/middleware';
 import { checkQuota, QuotaError } from '../storage/quota';
 import { 
@@ -260,7 +260,7 @@ async function handleMkcol(
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  await putUserObject(userId, resourcePath, new Uint8Array(), env, {
+  await putUserObject(userId, resourcePath, new ArrayBuffer(0), env, {
     customMetadata: { resourcetype: '<collection />' },
   });
 
@@ -530,7 +530,7 @@ async function handleCopy(
     }
 
     // 创建目标目录
-    await putUserObject(userId, destRelative, new Uint8Array(), env, {
+    await putUserObject(userId, destRelative, new ArrayBuffer(0), env, {
       customMetadata: { resourcetype: '<collection />' },
     });
   } else {
@@ -742,17 +742,4 @@ function renderEmptyPropertyElement(property: DeadProperty): string {
         ? ` xmlns:${property.prefix}="${escapeXml(property.namespaceURI)}"`
         : ` xmlns="${escapeXml(property.namespaceURI)}"`;
   return `<${qualifiedName}${namespaceDeclaration} />`;
-}
-
-function renderPropstat(status: string, properties: string[]): string {
-  if (properties.length === 0) {
-    return '';
-  }
-  return `
-    <propstat>
-      <prop>
-      ${properties.join('\n        ')}
-      </prop>
-      <status>${status}</status>
-    </propstat>`;
 }

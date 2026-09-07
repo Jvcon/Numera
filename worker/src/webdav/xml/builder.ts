@@ -1,5 +1,5 @@
-import { DavProperties, DeadProperty, LockDetails } from '../types';
-import { DAV_NAMESPACE, DEAD_PROPERTY_PREFIX } from '../config';
+import { DavProperties, DeadProperty, LockDetails } from '../../types';
+import { DAV_NAMESPACE, DEAD_PROPERTY_PREFIX } from '../../config';
 
 // XML 转义
 export function escapeXml(value: string): string {

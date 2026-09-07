@@ -5,6 +5,7 @@ members = [
     "crates/format",
     "crates/sync",
     "crates/crypto",
+    "crates/command",
     "crates/wasm",
     "crates/ffi",
     "crates/cli",
@@ -23,6 +24,7 @@ numera-engine = { path = "crates/engine" }
 numera-format = { path = "crates/format" }
 numera-sync = { path = "crates/sync" }
 numera-crypto = { path = "crates/crypto" }
+numera-command = { path = "crates/command" }
 
 # 上游依赖
 numr-core = { git = "https://github.com/nasedkinpv/numr", branch = "master" }
@@ -42,11 +44,11 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # 加密
-chacha20poly1305 = "0.10"
-hkdf = "0.12"
-sha2 = "0.10"
-argon2 = "0.5"
-rand = "0.8"
+chacha20poly1305 = "0.11.0"
+hkdf = "0.13.0"
+sha2 = "0.11.0"
+argon2 = "0.6.0"
+rand = "0.10.2"
 
 # WASM
 wasm-bindgen = "0.2"
@@ -60,7 +62,7 @@ web-sys = { version = "0.3", features = [
 ] }
 
 # FFI
-uniffi = "0.25"
+uniffi = "0.32.0"
 
 # CLI
 clap = { version = "4", features = ["derive"] }

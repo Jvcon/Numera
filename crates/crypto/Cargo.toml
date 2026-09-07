@@ -1,0 +1,21 @@
+[package]
+name = "numera-crypto"
+description = "E2E encryption for Numera - XChaCha20-Poly1305 + HKDF"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+chacha20poly1305 = { workspace = true }
+hkdf = { workspace = true }
+sha2 = { workspace = true }
+argon2 = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

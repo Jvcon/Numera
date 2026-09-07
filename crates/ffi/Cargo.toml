@@ -1,0 +1,26 @@
+[package]
+name = "numera-ffi"
+description = "UniFFI bindings for Numera engine (Kotlin/Swift)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+numera-engine = { workspace = true }
+numera-format = { workspace = true }
+numera-sync = { workspace = true }
+numera-crypto = { workspace = true }
+uniffi = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[build-dependencies]
+uniffi = { version = "0.25", features = ["build"] }
+
+[features]
+default = []

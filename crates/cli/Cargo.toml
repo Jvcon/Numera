@@ -1,0 +1,27 @@
+[package]
+name = "numera"
+description = "Numera - Multi-platform natural language text calculator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "numera"
+path = "src/main.rs"
+
+[dependencies]
+numera-engine = { workspace = true }
+numera-format = { workspace = true }
+numera-sync = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+
+[features]
+default = []

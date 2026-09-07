@@ -1,0 +1,22 @@
+{
+  "name": "numera-worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "db:migrate": "wrangler d1 execute numera-db --file=schema.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.8.0",
+    "jose": "^5.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "wrangler": "^3.0.0",
+    "vitest": "^1.0.0",
+    "typescript": "^5.0.0"
+  }
+}

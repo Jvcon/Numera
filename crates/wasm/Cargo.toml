@@ -1,0 +1,25 @@
+[package]
+name = "numera-wasm"
+description = "WASM bindings for Numera engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+numera-engine = { workspace = true }
+numera-format = { workspace = true }
+numera-sync = { workspace = true }
+numera-crypto = { workspace = true }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[features]
+default = []

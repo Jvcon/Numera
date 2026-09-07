@@ -1,0 +1,23 @@
+[package]
+name = "numera-engine"
+description = "Extended calculation engine for Numera - depends on numr-core with added date/time, cross-file references, and aggregation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+numr-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+wasm = ["numr-core/wasm"]

@@ -16,7 +16,7 @@
 
   // Use 'postCreateCommand' to install global cargo tools and rust targets after the container is created.
   // '--no-fail-flag' style: each step is independent so a failure in one does not block the rest.
-  "postCreateCommand": "cargo install cross --git https://github.com/cross-rs/cross && curl -fsSL https://opencode.ai/install | bash || true",
+  "postCreateCommand": "curl -fsSL https://opencode.ai/install | bash || true",
 
   // Ports to forward by default. These match Vite (5173/4173), wrangler dev (8787),
   // and a dedicated Node inspector port (9229) for debugging the frontend.

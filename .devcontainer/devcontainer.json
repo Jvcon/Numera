@@ -3,13 +3,9 @@
 
   "image": "mcr.microsoft.com/devcontainers/rust:dev-bookworm",
 
-  // Features to add to the dev container. We need Docker-in-Docker for the 'cross' compilation tool,
-  // Node.js for the Vite/web frontend and Cloudflare worker, and Kotlin SDKMAN for tooling parity.
+  // Features to add to the dev container. Node.js for the Vite/web frontend and Cloudflare worker,
+  // and Kotlin SDKMAN for tooling parity.
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest",
-      "enableNonRootDocker": "true"
-    },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "24",
       "installGlobally": ["@opencode-ai/cli", "npm", "yarn", "pnpm"],
@@ -70,8 +66,6 @@
         "ms-playwright.playwright"
       ],
       "settings": {
-        "rust-analyzer.cargo.target": "x86_64-unknown-linux-gnu",
-        "rust-analyzer.check.command": "clippy",
         "terminal.integrated.env.linux": {
           "PATH": "${env:PATH}:${userHome}/.opencode/bin:${userHome}/.cargo/bin"
         },

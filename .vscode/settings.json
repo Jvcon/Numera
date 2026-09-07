@@ -1,0 +1,19 @@
+{
+  // rust-analyzer: tuned to minimize root re-scans / flycheck churn on this 8-crate workspace.
+  "rust-analyzer.cargo.buildScripts.enable": true,
+  "rust-analyzer.cargo.allTargets": false,
+  "rust-analyzer.check.workspace": false,
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.cargo.targetDir": true,
+  "rust-analyzer.linkedProjects": ["./Cargo.toml"],
+  "rust-analyzer.files.exclude": [
+    "target",
+    "web/dist",
+    "node_modules"
+  ],
+  "files.watcherExclude": {
+    "**/target": true,
+    "**/node_modules": true,
+    "**/.git": true
+  }
+}

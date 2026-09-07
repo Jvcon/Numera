@@ -12,15 +12,17 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=web",
+    "dev": "npm run build:wasm && npm run dev --workspace=web",
     "dev:worker": "npm run dev --workspace=worker",
-    "build": "npm run build --workspaces --if-present",
-    "build:web": "npm run build --workspace=web",
+    "build:wasm": "wasm-pack build crates/wasm --target web --out-dir pkg --out-name numera_wasm --dev",
+    "build:wasm:release": "wasm-pack build crates/wasm --target web --out-dir pkg --out-name numera_wasm",
+    "build": "npm run build:wasm:release && npm run build --workspaces --if-present",
+    "build:web": "npm run build:wasm:release && npm run build --workspace=web",
     "build:worker": "npm run build --workspace=worker --if-present",
     "preview": "npm run preview --workspace=web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules"
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules crates/wasm/pkg"
   },
   "overrides": {
     "glob": "^13.0.0"

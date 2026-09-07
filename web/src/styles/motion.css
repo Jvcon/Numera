@@ -1,0 +1,38 @@
+:root {
+  /* MD3 emphasized easing */
+  --md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md-sys-motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+  /* Standard easing */
+  --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-standard-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --md-sys-motion-easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  /* Exit easing */
+  --md-sys-motion-easing-exit: cubic-bezier(0.4, 0, 1, 1);
+  --md-sys-motion-easing-enter: cubic-bezier(0, 0, 0.2, 1);
+
+  /* Durations */
+  --md-sys-motion-duration-instant: 0ms;
+  --md-sys-motion-duration-fast: 100ms;
+  --md-sys-motion-duration-medium: 200ms;
+  --md-sys-motion-duration-emphasized: 300ms;
+  --md-sys-motion-duration-long: 400ms;
+
+  /* State layers */
+  --md-sys-state-hover-state-layer-opacity: 0.08;
+  --md-sys-state-focus-state-layer-opacity: 0.1;
+  --md-sys-state-pressed-state-layer-opacity: 0.12;
+  --md-sys-state-dragged-state-layer-opacity: 0.16;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --md-sys-motion-duration-instant: 0ms;
+    --md-sys-motion-duration-fast: 0ms;
+    --md-sys-motion-duration-medium: 0ms;
+    --md-sys-motion-duration-emphasized: 0ms;
+    --md-sys-motion-duration-long: 0ms;
+  }
+}

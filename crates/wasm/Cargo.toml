@@ -10,16 +10,19 @@ repository.workspace = true
 [lib]
 crate-type = ["cdylib"]
 
+# Slice A scope: only the calculation engine is exposed to WASM.
+# `format` / `sync` / `crypto` re-enter later once their native-only deps
+# (tokio fs, reqwest, etc.) are gated for wasm32.
 [dependencies]
 numera-engine = { workspace = true }
-numera-format = { workspace = true }
-numera-sync = { workspace = true }
-numera-crypto = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# Enables better panic messages in browser dev tools.
+console_error_panic_hook = { version = "0.1", optional = true }
 
 [features]
-default = []
+default = ["console_error_panic_hook"]
+

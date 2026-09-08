@@ -37,12 +37,16 @@ export interface WorkspaceFile {
   pinned: boolean;
   /** Editor contents. */
   content: string;
+  /** Ephemeral scratch file — never persisted. */
+  draft?: boolean;
 }
 
 export interface WorkspaceState {
   files: WorkspaceFile[];
   activeFileId: string | null;
   globalsContent: string;
+  /** What the editor is currently showing: a file, or the globals doc. */
+  editingTarget: 'file' | 'globals';
   outcomes: LineOutcome[];
   mode: 'Normal' | 'Insert' | 'Standard';
   lastError: string | null;
@@ -118,12 +122,14 @@ export class WorkspaceStore {
   private engine: EngineHandle | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private hydrated = false;
+  private draftCounter = 0;
 
   constructor() {
     this.state = {
       files: DEFAULT_FILES.map((f) => ({ ...f })),
       activeFileId: DEFAULT_FILES[0]?.id ?? null,
       globalsContent: DEFAULT_GLOBALS,
+      editingTarget: 'file',
       outcomes: [],
       mode: 'Standard',
       lastError: null,
@@ -190,6 +196,28 @@ export class WorkspaceStore {
   }
 
   async evaluateActiveFile(): Promise<void> {
+    if (this.state.editingTarget === 'globals') {
+      // Evaluating the globals document itself: no cross-file references
+      // apply here — globals are the shared context, not a consumer.
+      if (!this.engine) {
+        this.update({ outcomes: [] });
+        return;
+      }
+      try {
+        await this.engine.setGlobals(this.state.globalsContent);
+        const outcomes = await this.engine.evaluateDocument(
+          this.state.globalsContent,
+        );
+        this.update({ outcomes, lastError: null });
+      } catch (err) {
+        this.update({
+          outcomes: [],
+          lastError: err instanceof Error ? err.message : String(err),
+        });
+      }
+      return;
+    }
+
     const active = this.activeFile();
     if (!active || !this.engine) {
       this.update({ outcomes: [] });
@@ -213,12 +241,17 @@ export class WorkspaceStore {
   }
 
   selectFile(id: string): void {
-    if (this.state.activeFileId === id) return;
-    this.update({ activeFileId: id });
+    if (this.state.editingTarget === 'file' && this.state.activeFileId === id)
+      return;
+    this.update({ activeFileId: id, editingTarget: 'file' });
     void this.evaluateActiveFile();
   }
 
   setActiveContent(content: string): void {
+    if (this.state.editingTarget === 'globals') {
+      void this.setGlobals(content);
+      return;
+    }
     const active = this.activeFile();
     if (!active || active.content === content) return;
     this.update({
@@ -245,6 +278,7 @@ export class WorkspaceStore {
       path,
       displayName,
       pinned: false,
+      draft: false,
       content: content || `# ${displayName}\n`,
     };
     this.update({
@@ -254,6 +288,44 @@ export class WorkspaceStore {
     void this.evaluateActiveFile();
     this.scheduleSave();
     return file;
+  }
+
+  /** Create an ephemeral scratch file and switch to it. Drafts are
+   *  never persisted and do not schedule a save. */
+  createDraft(content = ''): WorkspaceFile {
+    let n = this.draftCounter + 1;
+    const used = new Set(this.state.files.map((f) => f.id));
+    while (used.has(`draft-${n}`)) n += 1;
+    this.draftCounter = n;
+    const file: WorkspaceFile = {
+      id: `draft-${n}`,
+      path: 'Draft',
+      displayName: `Draft ${n}`,
+      pinned: false,
+      draft: true,
+      content,
+    };
+    this.update({
+      files: [...this.state.files, file],
+      activeFileId: file.id,
+      editingTarget: 'file',
+    });
+    void this.evaluateActiveFile();
+    return file;
+  }
+
+  /** Switch the editor to the globals document. */
+  openGlobals(): void {
+    if (this.state.editingTarget === 'globals') return;
+    this.update({ editingTarget: 'globals' });
+    void this.evaluateActiveFile();
+  }
+
+  /** Switch the editor back to the active file. */
+  closeGlobals(): void {
+    if (this.state.editingTarget !== 'globals') return;
+    this.update({ editingTarget: 'file' });
+    void this.evaluateActiveFile();
   }
 
   setMode(mode: WorkspaceState['mode']): void {
@@ -284,14 +356,16 @@ export class WorkspaceStore {
 
   private async persistNow(): Promise<void> {
     try {
-      const files: PersistedFile[] = this.state.files.map((f) => ({
-        id: f.id,
-        path: f.path,
-        displayName: f.displayName,
-        pinned: f.pinned,
-        content: f.content,
-        updatedAt: Date.now(),
-      }));
+      const files: PersistedFile[] = this.state.files
+        .filter((f) => !f.draft)
+        .map((f) => ({
+          id: f.id,
+          path: f.path,
+          displayName: f.displayName,
+          pinned: f.pinned,
+          content: f.content,
+          updatedAt: Date.now(),
+        }));
       await saveWorkspace({
         files,
         globalsContent: this.state.globalsContent,

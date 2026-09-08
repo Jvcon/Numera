@@ -9,6 +9,7 @@ import './editor-area';
 import './status-bar';
 import './command-palette';
 import './snackbar';
+import './fab';
 
 interface SidebarFile {
   id: string;
@@ -151,6 +152,9 @@ export class NumeraAppShell extends LitElement {
   @state()
   private paletteOpen = false;
 
+  @state()
+  private editingGlobals = false;
+
   private store = new WorkspaceStore();
 
   async connectedCallback(): Promise<void> {
@@ -163,13 +167,16 @@ export class NumeraAppShell extends LitElement {
     // Subscribe before attaching the engine so the first eval result
     // is broadcast to the freshly-mounted components.
     this.store.subscribe((state) => {
-      this.sidebarFiles = state.files.map((f) => ({
-        id: f.id,
-        path: f.path,
-        displayName: f.displayName,
-        pinned: f.pinned,
-      }));
+      this.sidebarFiles = state.files
+        .filter((f) => !f.draft)
+        .map((f) => ({
+          id: f.id,
+          path: f.path,
+          displayName: f.displayName,
+          pinned: f.pinned,
+        }));
       this.selectedFileId = state.activeFileId;
+      this.editingGlobals = state.editingTarget === 'globals';
       this.mode = state.mode;
       this.lastError = state.lastError;
     });
@@ -243,8 +250,21 @@ export class NumeraAppShell extends LitElement {
     this.sidebarOpen = false;
   };
 
-  private handleCommandPalette = () => {
+  private handleFabSearch = () => {
     this.paletteOpen = true;
+  };
+
+  private handleFabNewDraft = () => {
+    this.store.createDraft();
+    this.sidebarOpen = false;
+  };
+
+  private handleGlobalOpen = () => {
+    this.store.openGlobals();
+  };
+
+  private handleGlobalsClose = () => {
+    this.store.closeGlobals();
   };
 
   private handlePaletteClose = () => {
@@ -284,9 +304,11 @@ export class NumeraAppShell extends LitElement {
         .sidebarOpen=${this.sidebarOpen}
         .sidebarCollapsed=${this.sidebarCollapsed}
         .theme=${this.theme}
+        .editingGlobals=${this.editingGlobals}
         @menu-toggle=${this.handleMenuToggle}
         @theme-toggle=${this.handleThemeToggle}
-        @command-palette=${this.handleCommandPalette}
+        @global-open=${this.handleGlobalOpen}
+        @globals-close=${this.handleGlobalsClose}
       ></numera-top-bar>
 
       <numera-sidebar
@@ -311,6 +333,12 @@ export class NumeraAppShell extends LitElement {
         @palette-command=${this.handlePaletteCommand}
         @palette-close=${this.handlePaletteClose}
       ></numera-command-palette>
+
+      <numera-fab
+        @fab-new-file=${this.handleFileCreate}
+        @fab-new-draft=${this.handleFabNewDraft}
+        @fab-search=${this.handleFabSearch}
+      ></numera-fab>
 
       <numera-snackbar></numera-snackbar>
     `;

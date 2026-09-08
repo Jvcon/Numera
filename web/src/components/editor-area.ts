@@ -66,9 +66,12 @@ export class NumeraEditor extends LitElement {
 
   @state() private currentFile: WorkspaceFile | null = null;
 
+  @state() private editingGlobals = false;
+
   private view: EditorView | null = null;
   private unsubscribe: (() => void) | null = null;
   private currentOutcomes: readonly import('../lib/engine').LineOutcome[] = [];
+  private currentIdentity: string | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -93,18 +96,34 @@ export class NumeraEditor extends LitElement {
 
   private subscribe(store: WorkspaceStore) {
     this.unsubscribe = store.subscribe((state) => {
-      const previousFile = this.currentFile;
+      const previousIdentity = this.currentIdentity;
       const previousOutcomes = this.currentOutcomes;
 
-      this.currentFile = state.files.find((f) => f.id === state.activeFileId) ?? null;
+      const editingGlobals = state.editingTarget === 'globals';
+      const activeFile =
+        state.files.find((f) => f.id === state.activeFileId) ?? null;
+      // Display identity: the globals document, or the active file. The
+      // CodeMirror doc is only swapped when this identity changes, so
+      // snapshot updates while the user is typing never reset the doc.
+      const identity = editingGlobals
+        ? 'globals'
+        : (activeFile?.id ?? null);
+      const displayContent = editingGlobals
+        ? state.globalsContent
+        : (activeFile?.content ?? '');
+
+      this.editingGlobals = editingGlobals;
+      this.currentFile = activeFile;
+      this.currentIdentity = identity;
       this.currentOutcomes = state.outcomes;
 
-      const activeFile = this.currentFile;
       const view = this.view;
       const host = this.renderRoot.querySelector<HTMLDivElement>('.editor-host');
       if (!host) return;
 
-      if (!activeFile) {
+      // Empty-state placeholder: only when not editing globals and there
+      // is no active file.
+      if (!editingGlobals && !activeFile) {
         view?.destroy();
         this.view = null;
         return;
@@ -112,20 +131,20 @@ export class NumeraEditor extends LitElement {
 
       if (!view) {
         this.view = new EditorView({
-          state: this.buildState(activeFile.content),
+          state: this.buildState(displayContent),
           parent: host,
           dispatch: this.dispatch,
         });
         return;
       }
 
-      // If the file changed, swap doc. Otherwise leave the doc alone
-      // (the user is typing — we'll see their transaction).
-      if (!previousFile || previousFile.id !== activeFile.id) {
+      // If the display target changed, swap doc. Otherwise leave the doc
+      // alone (the user is typing — we'll see their transaction).
+      if (previousIdentity !== identity) {
         const currentDoc = view.state.doc.toString();
-        if (currentDoc !== activeFile.content) {
+        if (currentDoc !== displayContent) {
           view.dispatch({
-            changes: { from: 0, to: currentDoc.length, insert: activeFile.content },
+            changes: { from: 0, to: currentDoc.length, insert: displayContent },
           });
         }
       }
@@ -169,7 +188,7 @@ export class NumeraEditor extends LitElement {
   };
 
   render() {
-    if (!this.currentFile) {
+    if (!this.editingGlobals && !this.currentFile) {
       return html`
         <div class="empty">
           <div class="empty-icon" aria-hidden="true">

@@ -1,0 +1,56 @@
+/*
+ * Numera — Material 3 state layers + density tokens.
+ *
+ * State layers are semi-transparent overlays that communicate
+ * hover / focus / pressed / dragged. Use them with color-mix()
+ * to tint the underlying surface:
+ *
+ *   background-color: color-mix(
+ *     in srgb,
+ *     var(--md-sys-color-on-surface) calc(var(--md-sys-state-hover-state-layer-opacity) * 100%),
+ *     transparent
+ *   );
+ *
+ * Density tokens encode spacing decisions; the values are intentionally
+ * coarse so component authors can compose them (e.g. `calc(var(--space-2) + var(--space-1))`).
+ */
+
+:root {
+  /* State layers (MD3 spec opacities) */
+  --md-sys-state-hover-state-layer-opacity: 0.08;
+  --md-sys-state-focus-state-layer-opacity: 0.10;
+  --md-sys-state-pressed-state-layer-opacity: 0.12;
+  --md-sys-state-dragged-state-layer-opacity: 0.16;
+
+  /* Density — 4dp grid, with a few named landmarks. */
+  --md-sys-density-none: 0;
+  --md-sys-density-1: 0.25rem;   /* 4px  — tight icon padding */
+  --md-sys-density-2: 0.5rem;    /* 8px  — between related items */
+  --md-sys-density-3: 0.75rem;   /* 12px — list item inset */
+  --md-sys-density-4: 1rem;      /* 16px — block padding */
+  --md-sys-density-5: 1.25rem;   /* 20px */
+  --md-sys-density-6: 1.5rem;    /* 24px — section gap */
+  --md-sys-density-8: 2rem;      /* 32px */
+  --md-sys-density-10: 2.5rem;   /* 40px */
+  --md-sys-density-12: 3rem;     /* 48px */
+
+  /* Semantic spacing roles — pick these, not raw density. */
+  --md-sys-spacing-inline-tight: var(--md-sys-density-1);
+  --md-sys-spacing-inline: var(--md-sys-density-2);
+  --md-sys-spacing-inline-loose: var(--md-sys-density-3);
+  --md-sys-spacing-block-tight: var(--md-sys-density-2);
+  --md-sys-spacing-block: var(--md-sys-density-4);
+  --md-sys-spacing-block-loose: var(--md-sys-density-6);
+  --md-sys-spacing-section: var(--md-sys-density-8);
+
+  /* Hit target — Material 3 minimums. */
+  --md-sys-touch-target-min: 2.75rem;        /* 44px — iOS-style minimum */
+  --md-sys-touch-target-comfortable: 3rem;   /* 48px — M3 default */
+  --md-sys-touch-target-large: 3.5rem;       /* 56px — primary actions */
+
+  /* Standard layout primitives. */
+  --md-sys-app-bar-height: 4rem;             /* 64px — top bar */
+  --md-sys-bottom-bar-height: 2rem;          /* 32px — status bar */
+  --md-sys-nav-rail-width: 5rem;             /* 80px */
+  --md-sys-side-panel-width: 17.5rem;        /* 280px — sidebar */
+}

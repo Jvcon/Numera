@@ -10,10 +10,13 @@ pub mod context;
 pub mod date;
 pub mod error;
 pub mod eval;
+pub mod expression_prefix;
+pub mod function_call;
+pub mod global_ref;
 pub mod reference;
 pub mod aggregate;
 
 // Re-export main types
 pub use context::EngineContext;
 pub use error::EngineError;
-pub use eval::Engine;
+pub use eval::{Engine, LineOutcome};

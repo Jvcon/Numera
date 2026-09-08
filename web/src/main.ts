@@ -2,9 +2,13 @@ import './styles/reset.css';
 import './styles/tokens.css';
 import './styles/motion.css';
 
-// Registers all @material/web components. Individual imports can replace this
-// once the final component set stabilizes.
-import '@material/web/all.js';
+// Registers only the @material/web components used by the app. Importing
+// `@material/web/all.js` pulled in every component (~700 kB minified);
+// individual entry points tree-shake the rest.
+import '@material/web/icon/icon.js';
+import '@material/web/iconbutton/icon-button.js';
+import '@material/web/list/list.js';
+import '@material/web/list/list-item.js';
 
 import './app';
 

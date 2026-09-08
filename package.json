@@ -12,17 +12,18 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "dev": "npm run build:wasm && npm run dev --workspace=web",
+    "dev": "npm run build:wasm && npm run sync:wasm && npm run dev --workspace=web",
     "dev:worker": "npm run dev --workspace=worker",
-    "build:wasm": "wasm-pack build crates/wasm --target web --out-dir pkg --out-name numera_wasm --dev",
-    "build:wasm:release": "wasm-pack build crates/wasm --target web --out-dir pkg --out-name numera_wasm",
-    "build": "npm run build:wasm:release && npm run build --workspaces --if-present",
-    "build:web": "npm run build:wasm:release && npm run build --workspace=web",
+    "build:wasm": "cargo build -p numera-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/numera_wasm.wasm --out-dir crates/wasm/pkg --target web --out-name numera_wasm",
+    "build:wasm:release": "cargo build -p numera-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/numera_wasm.wasm --out-dir crates/wasm/pkg --target web --out-name numera_wasm",
+    "sync:wasm": "node scripts/sync-wasm.mjs",
+    "build": "npm run build:wasm:release && npm run sync:wasm && npm run build --workspaces --if-present",
+    "build:web": "npm run build:wasm:release && npm run sync:wasm && npm run build --workspace=web",
     "build:worker": "npm run build --workspace=worker --if-present",
     "preview": "npm run preview --workspace=web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules crates/wasm/pkg"
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules crates/wasm/pkg target/wasm32-unknown-unknown"
   },
   "overrides": {
     "glob": "^13.0.0"

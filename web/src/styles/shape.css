@@ -1,0 +1,34 @@
+/*
+ * Numera — Material 3 shape scale.
+ *
+ * Component corner radius follows M3: extra-small for inputs and chips,
+ * medium for cards and dialogs, large for sheets, extra-large for FAB.
+ * Components pick a radius by intent, not by pixel size.
+ *
+ * `--md-sys-shape-corner-*` are abstract corner tokens. Most components
+ * should reference a named role below instead of the raw corner.
+ */
+
+:root {
+  /* Raw corner scale (M3 spec) */
+  --md-sys-shape-corner-none: 0;
+  --md-sys-shape-corner-extra-small: 0.25rem;   /* 4px  — text fields, chips */
+  --md-sys-shape-corner-small: 0.5rem;          /* 8px  — small buttons */
+  --md-sys-shape-corner-medium: 0.75rem;        /* 12px — cards, dialogs */
+  --md-sys-shape-corner-large: 1rem;            /* 16px — large sheets */
+  --md-sys-shape-corner-extra-large: 1.75rem;   /* 28px — FAB, navigation rail */
+  --md-sys-shape-corner-full: 624.9375rem;       /* pill — segmented controls */
+
+  /* Semantic role aliases — pick these, not the raw scale. */
+  --md-sys-shape-text-field: var(--md-sys-shape-corner-extra-small);
+  --md-sys-shape-button: var(--md-sys-shape-corner-full);
+  --md-sys-shape-icon-button: var(--md-sys-shape-corner-full);
+  --md-sys-shape-chip: var(--md-sys-shape-corner-small);
+  --md-sys-shape-card: var(--md-sys-shape-corner-medium);
+  --md-sys-shape-dialog: var(--md-sys-shape-corner-extra-large);
+  --md-sys-shape-sheet: var(--md-sys-shape-corner-large);
+  --md-sys-shape-fab: var(--md-sys-shape-corner-large);
+  --md-sys-shape-badge: var(--md-sys-shape-corner-full);
+  --md-sys-shape-snackbar: var(--md-sys-shape-corner-extra-small);
+  --md-sys-shape-tooltip: var(--md-sys-shape-corner-extra-small);
+}

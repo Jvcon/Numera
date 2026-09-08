@@ -1,19 +1,59 @@
 {
   // rust-analyzer: tuned to minimize root re-scans / flycheck churn on this 8-crate workspace.
-  "rust-analyzer.cargo.buildScripts.enable": true,
+  //
+  // Key levers to stop repeat indexing:
+  //   * single linkedProject + exclude target/node_modules/web/dist from both VS Code
+  //     and rust-analyzer's OWN watcher (VS Code's files.watcherExclude does not
+  //     propagate to rust-analyzer — it has its own files.watcherExclude).
+  //   * disable buildScripts so proc-macro rebuilds don't invalidate the crate graph.
+  //   * disable cargo.loadOutDirsFromCheck and run clippy only on save (onSave=false
+  //     would also work; we keep it on for diagnostics but bound it to the current crate).
+  "rust-analyzer.linkedProjects": ["./Cargo.toml"],
   "rust-analyzer.cargo.allTargets": false,
+  "rust-analyzer.cargo.buildScripts.enable": false,
+  "rust-analyzer.cargo.targetDir": true,
+  "rust-analyzer.cargo.noDefaultFeatures": false,
+  "rust-analyzer.cache.cargoMetadata": true,
+  "rust-analyzer.cache.warmup": true,
   "rust-analyzer.check.workspace": false,
   "rust-analyzer.check.command": "clippy",
-  "rust-analyzer.cargo.targetDir": true,
-  "rust-analyzer.linkedProjects": ["./Cargo.toml"],
-  "rust-analyzer.files.exclude": [
-    "target",
-    "web/dist",
-    "node_modules"
+  "rust-analyzer.check.allTargets": false,
+  "rust-analyzer.check.exclude": [
+    // proc-macro crates that we don't edit — skip them so a single edit doesn't
+    // trigger clippy across the whole workspace.
+    "**/wasm/**",
+    "**/ffi/**"
   ],
+  "rust-analyzer.files.exclude": [
+    "**/target/**",
+    "**/node_modules/**",
+    "**/web/dist/**",
+    "**/worker/node_modules/**"
+  ],
+  // rust-analyzer's own file watcher — VS Code's files.watcherExclude is NOT enough.
+  "rust-analyzer.files.watcherExclude": {
+    "**/target/**": true,
+    "**/node_modules/**": true,
+    "**/.git/**": true,
+    "**/web/dist/**": true,
+    "**/worker/node_modules/**": true,
+    "**/*.rs.bk": true
+  },
   "files.watcherExclude": {
+    "**/target/**": true,
+    "**/node_modules/**": true,
+    "**/.git/**": true,
+    "**/web/dist/**": true
+  },
+  "files.exclude": {
     "**/target": true,
-    "**/node_modules": true,
-    "**/.git": true
+    "**/node_modules": true
+  },
+  // Stop rust-analyzer from auto-restarting on every Cargo.toml/Cargo.lock touch.
+  "rust-analyzer.restartOnConfigChange": false,
+  // Suppress Cargo.lock churn: cargo writes to it on every metadata fetch.
+  // numr-core is a git dep — pin a rev so cargo doesn't refetch the branch HEAD.
+  "rust-analyzer.cargo.extraEnv": {
+    "CARGO_NET_GIT_FETCH_WITH_CLI": "true"
   }
 }

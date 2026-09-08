@@ -15,9 +15,9 @@ export class NumeraTopBar extends LitElement {
     :host {
       display: flex;
       align-items: center;
-      gap: 8px;
-      height: 64px;
-      padding-inline: 4px 12px;
+      gap: var(--md-sys-spacing-inline-tight);
+      height: var(--md-sys-app-bar-height);
+      padding-inline: var(--md-sys-spacing-inline-tight) var(--md-sys-spacing-inline);
       background-color: var(--md-sys-color-surface-container-low);
       color: var(--md-sys-color-on-surface);
       border-bottom: 1px solid var(--md-sys-color-outline-variant);
@@ -29,23 +29,25 @@ export class NumeraTopBar extends LitElement {
 
     .title {
       flex: 1;
-      padding-inline-start: 12px;
-      font-family: 'Roboto', sans-serif;
-      font-size: 1.375rem;
-      font-weight: 500;
-      line-height: 1.2;
-      letter-spacing: 0;
+      padding-inline-start: var(--md-sys-spacing-inline-loose);
+      font-family: var(--md-sys-typescale-title-large-font);
+      font-size: var(--md-sys-typescale-title-large-size);
+      line-height: var(--md-sys-typescale-title-large-line);
+      font-weight: var(--md-sys-typescale-title-large-weight);
+      letter-spacing: var(--md-sys-typescale-title-large-tracking);
       color: var(--md-sys-color-on-surface);
     }
 
     .actions {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: var(--md-sys-spacing-inline-tight);
     }
 
     md-icon-button {
       color: var(--md-sys-color-on-surface-variant);
+      transition: color var(--md-sys-motion-duration-fast)
+        var(--md-sys-motion-easing-standard);
     }
 
     md-icon-button:hover {
@@ -57,11 +59,22 @@ export class NumeraTopBar extends LitElement {
         display: inline-flex;
       }
     }
+
+    @media (min-width: 1024px) {
+      :host([sidebar-collapsed]) .menu-button {
+        display: inline-flex;
+      }
+    }
   `;
 
   @property({ type: Boolean }) sidebarOpen = false;
 
+  @property({ type: Boolean, reflect: true, attribute: 'sidebar-collapsed' })
+  sidebarCollapsed = false;
+
   @property() theme: ThemeSetting = 'auto';
+
+  @property() fileName = 'Numera';
 
   private dispatchMenuToggle() {
     this.dispatchEvent(
@@ -109,7 +122,7 @@ export class NumeraTopBar extends LitElement {
         <md-icon>${ICONS.menu}</md-icon>
       </md-icon-button>
 
-      <div class="title" role="banner">Numera</div>
+      <div class="title" role="banner">${this.fileName}</div>
 
       <div class="actions">
         <md-icon-button aria-label="Search or command palette" @click=${this.dispatchCommandPalette}>

@@ -1,0 +1,116 @@
+/*
+ * Numera — Material 3 elevation system.
+ *
+ * M3 elevation combines a key-light shadow (above the surface) and an
+ * ambient-light shadow (below it). Six levels — 0 (resting surface)
+ * through 5 (modal/dialog).
+ *
+ * We expose:
+ *   --md-sys-elevation-levelN           → the box-shadow shorthand
+ *   --md-sys-elevation-levelN-key       → ambient shadow component
+ *   --md-sys-elevation-levelN-shadow    → key shadow component
+ *
+ * Components should pick the role alias (--md-sys-elevation-card,
+ * --md-sys-elevation-dialog, …) instead of a level number when intent
+ * is the goal, e.g. dialog shadows rather than "level 3 shadow".
+ */
+
+:root {
+  --md-sys-elevation-level0:
+    none;
+
+  --md-sys-elevation-level1-key:
+    0 1px 2px 0 rgb(0 0 0 / 0.30),
+    0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-level1-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.30),
+    0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-level1: var(--md-sys-elevation-level1-shadow);
+
+  --md-sys-elevation-level2-key:
+    0 1px 2px 0 rgb(0 0 0 / 0.30),
+    0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-level2-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.30),
+    0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-level2: var(--md-sys-elevation-level2-shadow);
+
+  --md-sys-elevation-level3-key:
+    0 4px 8px 3px rgb(0 0 0 / 0.15),
+    0 1px 3px 0 rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level3-shadow:
+    0 4px 8px 3px rgb(0 0 0 / 0.15),
+    0 1px 3px 0 rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level3: var(--md-sys-elevation-level3-shadow);
+
+  --md-sys-elevation-level4-key:
+    0 6px 10px 4px rgb(0 0 0 / 0.15),
+    0 2px 3px 0 rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level4-shadow:
+    0 6px 10px 4px rgb(0 0 0 / 0.15),
+    0 2px 3px 0 rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level4: var(--md-sys-elevation-level4-shadow);
+
+  --md-sys-elevation-level5-key:
+    0 8px 12px 6px rgb(0 0 0 / 0.15),
+    0 4px 4px 0 rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level5-shadow:
+    0 8px 12px 6px rgb(0 0 0 / 0.15),
+    0 4px 4px 0 rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level5: var(--md-sys-elevation-level5-shadow);
+
+  /* Semantic role aliases — prefer these. */
+  --md-sys-elevation-card: var(--md-sys-elevation-level1);
+  --md-sys-elevation-card-hover: var(--md-sys-elevation-level2);
+  --md-sys-elevation-menu: var(--md-sys-elevation-level2);
+  --md-sys-elevation-tooltip: var(--md-sys-elevation-level2);
+  --md-sys-elevation-snackbar: var(--md-sys-elevation-level3);
+  --md-sys-elevation-nav-drawer: var(--md-sys-elevation-level1);
+  --md-sys-elevation-bottom-sheet: var(--md-sys-elevation-level2);
+  --md-sys-elevation-dialog: var(--md-sys-elevation-level3);
+  --md-sys-elevation-fab-rest: var(--md-sys-elevation-level3);
+  --md-sys-elevation-fab-hover: var(--md-sys-elevation-level4);
+  --md-sys-elevation-fab-pressed: var(--md-sys-elevation-level5);
+}
+
+[data-theme="dark"] {
+  --md-sys-elevation-level1-key:
+    0 1px 2px 0 rgb(0 0 0 / 0.50),
+    0 1px 3px 1px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level1-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.50),
+    0 1px 3px 1px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level1: var(--md-sys-elevation-level1-shadow);
+
+  --md-sys-elevation-level2-key:
+    0 1px 2px 0 rgb(0 0 0 / 0.50),
+    0 2px 6px 2px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level2-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.50),
+    0 2px 6px 2px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-level2: var(--md-sys-elevation-level2-shadow);
+
+  --md-sys-elevation-level3-key:
+    0 4px 8px 3px rgb(0 0 0 / 0.30),
+    0 1px 3px 0 rgb(0 0 0 / 0.50);
+  --md-sys-elevation-level3-shadow:
+    0 4px 8px 3px rgb(0 0 0 / 0.30),
+    0 1px 3px 0 rgb(0 0 0 / 0.50);
+  --md-sys-elevation-level3: var(--md-sys-elevation-level3-shadow);
+
+  --md-sys-elevation-level4-key:
+    0 6px 10px 4px rgb(0 0 0 / 0.30),
+    0 2px 3px 0 rgb(0 0 0 / 0.50);
+  --md-sys-elevation-level4-shadow:
+    0 6px 10px 4px rgb(0 0 0 / 0.30),
+    0 2px 3px 0 rgb(0 0 0 / 0.50);
+  --md-sys-elevation-level4: var(--md-sys-elevation-level4-shadow);
+
+  --md-sys-elevation-level5-key:
+    0 8px 12px 6px rgb(0 0 0 / 0.30),
+    0 4px 4px 0 rgb(0 0 0 / 0.50);
+  --md-sys-elevation-level5-shadow:
+    0 8px 12px 6px rgb(0 0 0 / 0.30),
+    0 4px 4px 0 rgb(0 0 0 / 0.50);
+  --md-sys-elevation-level5: var(--md-sys-elevation-level5-shadow);
+}

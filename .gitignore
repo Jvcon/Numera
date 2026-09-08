@@ -95,6 +95,12 @@ Thumbs.db
 !**/*.wasm-gc
 **/bindings/
 
+# Vite dev build output (vite-plugin-pwa dev service worker)
+web/dev-dist/
+
+# WASM bindings synced into the web source tree by scripts/sync-wasm.mjs
+web/src/wasm/
+
 # Build artifacts produced by uniffi
 **/target/uniffi/
 

@@ -26,13 +26,6 @@ function buildKeyInput(event: KeyboardEvent): KeyInput {
 }
 
 function shouldIgnoreEvent(event: KeyboardEvent): boolean {
-  // Let composed inputs (like Cmd+K inside an input) still flow if not purely modifier.
-  const target = event.target as HTMLElement | null;
-  const isTypingElement =
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    (target?.isContentEditable ?? false);
-
   // When typing in an editor we still want chorded shortcuts like Ctrl/Cmd+K.
   // We do not ignore here; the consumer decides whether to call preventDefault().
   if (event.key === 'Control' || event.key === 'Alt' || event.key === 'Shift' || event.key === 'Meta') {

@@ -1,59 +1,71 @@
 //! Numera WASM - WebAssembly bindings
 //!
-//! This crate provides WASM bindings for the Numera engine
-//! for use in web browsers.
+//! This crate exposes the calculation engine to web browsers. The
+//! primary entry point is [`WasmEngine`], which mirrors the editor's
+//! mental model: globals are pushed in, a document is fed line by line,
+//! and per-line outcomes are returned as plain JSON for the JS layer
+//! to render.
 
+use numera_engine::{Engine as CoreEngine, LineOutcome};
 use wasm_bindgen::prelude::*;
 
-/// Initialize the WASM module
+/// Initialize the WASM module. Wired up by `#[wasm_bindgen(start)]`.
 #[wasm_bindgen(start)]
 pub fn init() {
-    // Set up panic hook for better error messages
+    // Set up panic hook for better error messages.
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 }
 
-/// Evaluate an expression
-#[wasm_bindgen]
-pub fn eval(expr: &str) -> Result<String, JsError> {
-    let mut engine = numera_engine::Engine::new();
-    engine.eval(expr).map_err(|e| JsError::new(&e.to_string()))
-}
-
-/// Create a new engine instance
+/// One engine instance per workspace. The JS layer is expected to keep
+/// a single `WasmEngine` alive for the duration of a session.
 #[wasm_bindgen]
 pub struct WasmEngine {
-    engine: numera_engine::Engine,
+    engine: CoreEngine,
 }
 
 #[wasm_bindgen]
 impl WasmEngine {
-    /// Create a new engine
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
-            engine: numera_engine::Engine::new(),
+            engine: CoreEngine::new(),
         }
     }
 
-    /// Evaluate an expression
-    pub fn eval(&mut self, expr: &str) -> Result<String, JsError> {
-        self.engine.eval(expr).map_err(|e| JsError::new(&e.to_string()))
+    /// Store the globals content (`globals.numr`). Subsequent
+    /// [`evaluate_document`] calls re-inject globals before evaluating.
+    #[wasm_bindgen(js_name = setGlobals)]
+    pub fn set_globals(&mut self, content: &str) {
+        self.engine.set_globals(content);
     }
 
-    /// Load globals
-    pub fn load_globals(&mut self, content: &str) -> Result<(), JsError> {
-        self.engine.load_globals(content).map_err(|e| JsError::new(&e.to_string()))
+    /// Evaluate every line of `document` and return one
+    /// `{display, error, isEmpty, isError}` entry per input line, in
+    /// order. Globals are pre-injected.
+    #[wasm_bindgen(js_name = evaluateDocument)]
+    pub fn evaluate_document(&mut self, document: &str) -> Result<JsValue, JsError> {
+        let outcomes: Vec<LineOutcome> = self.engine.evaluate_document(document);
+        serde_wasm_bindgen::to_value(&outcomes).map_err(|e| JsError::new(&e.to_string()))
     }
 
-    /// Load a document
-    pub fn load_document(&mut self, name: &str, content: &str) {
-        self.engine.load_document(name, content);
+    /// Single-line evaluation. Globals are NOT re-injected — call
+    /// [`set_globals`] first or use [`evaluate_document`] for a fresh
+    /// evaluation pass.
+    #[wasm_bindgen]
+    pub fn eval(&mut self, line: &str) -> Result<String, JsError> {
+        self.engine
+            .eval(line)
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
-    /// Set current document
-    pub fn set_current_document(&mut self, name: Option<String>) {
-        self.engine.set_current_document(name);
+    /// UTF-16 offset where the executable expression ends (trailing
+    /// comments are excluded). The result gutter uses this to anchor
+    /// its visual marker next to the last symbol of the expression,
+    /// even when the line wraps across visual rows.
+    #[wasm_bindgen(js_name = expressionPrefixUtf16Len)]
+    pub fn expression_prefix_utf16_len(&self, line: &str) -> usize {
+        numera_engine::expression_prefix::expression_prefix_utf16_len(line)
     }
 }
 

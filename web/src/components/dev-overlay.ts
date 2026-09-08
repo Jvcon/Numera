@@ -7,13 +7,13 @@ export class NumeraDevOverlay extends LitElement {
   static styles = css`
     :host {
       position: fixed;
-      inset-inline-end: 16px;
-      inset-block-end: 48px;
+      inset-inline-end: var(--md-sys-spacing-block);
+      inset-block-end: calc(var(--md-sys-bottom-bar-height) + var(--md-sys-spacing-block));
       z-index: 10;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 8px;
+      gap: var(--md-sys-spacing-inline);
       pointer-events: none;
     }
 
@@ -22,18 +22,21 @@ export class NumeraDevOverlay extends LitElement {
       background-color: var(--md-sys-color-surface-container-highest);
       color: var(--md-sys-color-on-surface);
       border: 1px solid var(--md-sys-color-outline-variant);
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-family: 'Roboto', sans-serif;
-      font-size: 0.75rem;
-      font-weight: 500;
-      letter-spacing: 0.025em;
+      border-radius: var(--md-sys-shape-chip);
+      padding: var(--md-sys-spacing-inline) var(--md-sys-spacing-inline-loose);
+      font-family: var(--md-sys-typescale-label-medium-font);
+      font-size: var(--md-sys-typescale-label-medium-size);
+      line-height: var(--md-sys-typescale-label-medium-line);
+      font-weight: var(--md-sys-typescale-label-medium-weight);
+      letter-spacing: var(--md-sys-typescale-label-medium-tracking);
       text-transform: uppercase;
-      box-shadow: var(--md-sys-elevation-level1, 0 1px 2px rgba(0, 0, 0, 0.1));
+      box-shadow: var(--md-sys-elevation-card);
       cursor: pointer;
       transition:
-        background-color var(--md-sys-motion-duration-fast) var(--md-sys-motion-easing-standard),
-        transform var(--md-sys-motion-duration-fast) var(--md-sys-motion-easing-standard);
+        background-color var(--md-sys-motion-duration-fast)
+          var(--md-sys-motion-easing-standard),
+        transform var(--md-sys-motion-duration-fast)
+          var(--md-sys-motion-easing-standard);
     }
 
     .toggle:hover {
@@ -46,21 +49,22 @@ export class NumeraDevOverlay extends LitElement {
 
     .panel {
       pointer-events: auto;
-      min-width: 240px;
-      max-width: min(360px, calc(100vw - 32px));
-      max-height: 240px;
+      min-width: 15rem;
+      max-width: min(22.5rem, calc(100vw - 32px));
+      max-height: 15rem;
       overflow-y: auto;
       background-color: var(--md-sys-color-surface-container-highest);
       color: var(--md-sys-color-on-surface);
       border: 1px solid var(--md-sys-color-outline-variant);
-      border-radius: 12px;
-      padding: 12px;
-      font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
-      font-size: 0.75rem;
-      line-height: 1.25rem;
-      box-shadow: var(--md-sys-elevation-level2, 0 2px 4px rgba(0, 0, 0, 0.1));
+      border-radius: var(--md-sys-shape-card);
+      padding: var(--md-sys-spacing-inline-loose);
+      font-family: var(--md-sys-typescale-font-mono);
+      font-size: var(--md-sys-typescale-label-small-size);
+      line-height: var(--md-sys-typescale-label-small-line);
+      box-shadow: var(--md-sys-elevation-menu);
       transform-origin: bottom right;
-      animation: panel-enter var(--md-sys-motion-duration-emphasized) var(--md-sys-motion-easing-emphasized-decelerate);
+      animation: panel-enter var(--md-sys-motion-duration-emphasized)
+        var(--md-sys-motion-easing-emphasized-decelerate);
     }
 
     @keyframes panel-enter {
@@ -78,18 +82,19 @@ export class NumeraDevOverlay extends LitElement {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
-      padding-bottom: 8px;
+      margin-bottom: var(--md-sys-spacing-inline);
+      padding-bottom: var(--md-sys-spacing-inline);
       border-bottom: 1px solid var(--md-sys-color-outline-variant);
       color: var(--md-sys-color-on-surface-variant);
-      font-family: 'Roboto', sans-serif;
-      font-weight: 500;
+      font-family: var(--md-sys-typescale-label-medium-font);
+      font-size: var(--md-sys-typescale-label-medium-size);
+      font-weight: var(--md-sys-typescale-label-medium-weight);
     }
 
     .event {
       display: flex;
-      gap: 12px;
-      padding: 4px 0;
+      gap: var(--md-sys-spacing-inline-loose);
+      padding: var(--md-sys-density-1) 0;
       opacity: 0.87;
     }
 
@@ -110,8 +115,8 @@ export class NumeraDevOverlay extends LitElement {
 
     @media (max-width: 639px) {
       :host {
-        inset-inline-end: 8px;
-        inset-block-end: 40px;
+        inset-inline-end: var(--md-sys-spacing-inline);
+        inset-block-end: calc(var(--md-sys-bottom-bar-height) + var(--md-sys-spacing-inline));
       }
     }
   `;

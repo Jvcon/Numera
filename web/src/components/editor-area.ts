@@ -1,24 +1,12 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-
-interface NumeraFile {
-  id: string;
-  path: string;
-  displayName: string;
-  pinned: boolean;
-}
-
-const EXAMPLE_CONTENT = `# Welcome to Numera
-# A natural-language text calculator
-
-monthly_income = $6,500
-tax_rate       = 22%
-rent           = $1,800
-savings        = monthly_income * (1 - tax_rate) - rent
-
-# Try editing this file. Keyboard events are captured
-# by the wasm-ready bridge and logged to the dev overlay.
-`;
+import { EditorState } from '@codemirror/state';
+import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, keymap } from '@codemirror/view';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { numeraLanguage } from '../lib/numera-lang';
+import { numeraSyntax, numeraTheme } from '../lib/editor-theme';
+import { outcomeDecorations, setOutcomes } from '../lib/editor-decorations';
+import type { WorkspaceStore, WorkspaceFile } from '../lib/workspace';
 
 @customElement('numera-editor')
 export class NumeraEditor extends LitElement {
@@ -31,123 +19,172 @@ export class NumeraEditor extends LitElement {
       background-color: var(--md-sys-color-surface);
     }
 
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      min-height: 48px;
-      border-bottom: 1px solid var(--md-sys-color-outline-variant);
-      background-color: var(--md-sys-color-surface-container-low);
-    }
-
-    .file-name {
-      font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
-      font-size: 0.875rem;
-      font-weight: 500;
-      line-height: 1.25rem;
-      color: var(--md-sys-color-on-surface);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .file-meta {
-      font-size: 0.75rem;
-      line-height: 1rem;
-      color: var(--md-sys-color-on-surface-variant);
-      margin-inline-start: auto;
-    }
-
-    .editor-wrapper {
+    .editor-host {
       flex: 1;
-      position: relative;
-      padding: 16px;
+      min-height: 0;
       overflow: hidden;
-    }
-
-    textarea {
-      width: 100%;
-      height: 100%;
-      padding: 16px;
-      resize: none;
-      border: 1px solid var(--md-sys-color-outline);
-      border-radius: 4px;
-      background-color: var(--md-sys-color-surface);
-      color: var(--md-sys-color-on-surface);
-      font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
-      font-size: 0.9375rem;
-      line-height: 1.5rem;
-      letter-spacing: 0;
-      tab-size: 2;
-      caret-color: var(--md-sys-color-primary);
-      transition:
-        border-color var(--md-sys-motion-duration-fast) var(--md-sys-motion-easing-standard),
-        box-shadow var(--md-sys-motion-duration-fast) var(--md-sys-motion-easing-standard);
-    }
-
-    textarea:hover {
-      border-color: var(--md-sys-color-on-surface);
-    }
-
-    textarea:focus {
-      outline: none;
-      border-color: var(--md-sys-color-primary);
-      box-shadow: 0 0 0 1px var(--md-sys-color-primary);
     }
 
     .empty {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: var(--md-sys-spacing-inline);
       height: 100%;
+      padding: var(--md-sys-spacing-section);
+      text-align: center;
       color: var(--md-sys-color-on-surface-variant);
-      font-size: 0.875rem;
     }
 
-    @media (max-width: 639px) {
-      .editor-wrapper {
-        padding: 8px;
-      }
+    .empty-icon {
+      color: var(--md-sys-color-on-surface-variant);
+      opacity: 0.5;
+      margin-bottom: var(--md-sys-spacing-inline-tight);
+    }
 
-      textarea {
-        padding: 12px;
-      }
+    .empty-title {
+      font-family: var(--md-sys-typescale-title-medium-font);
+      font-size: var(--md-sys-typescale-title-medium-size);
+      line-height: var(--md-sys-typescale-title-medium-line);
+      font-weight: var(--md-sys-typescale-title-medium-weight);
+      letter-spacing: var(--md-sys-typescale-title-medium-tracking);
+      color: var(--md-sys-color-on-surface);
+    }
+
+    .empty-body {
+      max-width: 24rem;
+      font-family: var(--md-sys-typescale-body-medium-font);
+      font-size: var(--md-sys-typescale-body-medium-size);
+      line-height: var(--md-sys-typescale-body-medium-line);
+      font-weight: var(--md-sys-typescale-body-medium-weight);
+      letter-spacing: var(--md-sys-typescale-body-medium-tracking);
     }
   `;
 
-  @property({ attribute: false }) file: NumeraFile | null = null;
+  @property({ attribute: false }) store: WorkspaceStore | null = null;
 
-  @property() mode: 'Normal' | 'Insert' | 'Standard' = 'Standard';
+  @state() private currentFile: WorkspaceFile | null = null;
 
-  @state()
-  private content = EXAMPLE_CONTENT;
+  private view: EditorView | null = null;
+  private unsubscribe: (() => void) | null = null;
+  private currentOutcomes: readonly import('../lib/engine').LineOutcome[] = [];
 
-  private handleInput(event: Event) {
-    const target = event.target as HTMLTextAreaElement;
-    this.content = target.value;
+  connectedCallback(): void {
+    super.connectedCallback();
+    if (this.store) {
+      this.subscribe(this.store);
+    }
   }
 
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.unsubscribe?.();
+    this.view?.destroy();
+    this.view = null;
+  }
+
+  updated(changed: Map<string, unknown>): void {
+    if (changed.has('store') && this.store) {
+      this.unsubscribe?.();
+      this.subscribe(this.store);
+    }
+  }
+
+  private subscribe(store: WorkspaceStore) {
+    this.unsubscribe = store.subscribe((state) => {
+      const previousFile = this.currentFile;
+      const previousOutcomes = this.currentOutcomes;
+
+      this.currentFile = state.files.find((f) => f.id === state.activeFileId) ?? null;
+      this.currentOutcomes = state.outcomes;
+
+      const activeFile = this.currentFile;
+      const view = this.view;
+      const host = this.renderRoot.querySelector<HTMLDivElement>('.editor-host');
+      if (!host) return;
+
+      if (!activeFile) {
+        view?.destroy();
+        this.view = null;
+        return;
+      }
+
+      if (!view) {
+        this.view = new EditorView({
+          state: this.buildState(activeFile.content),
+          parent: host,
+          dispatch: this.dispatch,
+        });
+        return;
+      }
+
+      // If the file changed, swap doc. Otherwise leave the doc alone
+      // (the user is typing — we'll see their transaction).
+      if (!previousFile || previousFile.id !== activeFile.id) {
+        const currentDoc = view.state.doc.toString();
+        if (currentDoc !== activeFile.content) {
+          view.dispatch({
+            changes: { from: 0, to: currentDoc.length, insert: activeFile.content },
+          });
+        }
+      }
+
+      // Push the latest outcomes into editor state so the gutter's
+      // `lineMarkerChange` re-renders the result column.
+      if (previousOutcomes !== state.outcomes) {
+        view.dispatch({
+          effects: setOutcomes.of({ outcomes: state.outcomes }),
+        });
+      }
+    });
+  }
+
+  private buildState(content: string): EditorState {
+    const engine = this.store?.getEngine();
+    return EditorState.create({
+      doc: content,
+      extensions: [
+        lineNumbers(),
+        highlightActiveLine(),
+        highlightActiveLineGutter(),
+        history(),
+        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+        numeraLanguage,
+        numeraSyntax,
+        numeraTheme,
+        EditorView.lineWrapping,
+        outcomeDecorations((line) => engine?.expressionPrefixUtf16Len(line) ?? line.length),
+      ],
+    });
+  }
+
+  private dispatch = (tr: import('@codemirror/state').Transaction): void => {
+    if (!this.view || !this.store) return;
+    this.view.update([tr]);
+    if (tr.docChanged) {
+      const text = tr.state.doc.toString();
+      this.store.setActiveContent(text);
+    }
+  };
+
   render() {
-    if (!this.file) {
-      return html`<div class="empty">Select a file from the sidebar to begin.</div>`;
+    if (!this.currentFile) {
+      return html`
+        <div class="empty">
+          <div class="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z" />
+            </svg>
+          </div>
+          <div class="empty-title">No file selected</div>
+          <div class="empty-body">
+            Pick a file from the sidebar, or press Ctrl+K to open the command palette.
+          </div>
+        </div>
+      `;
     }
 
-    return html`
-      <div class="header">
-        <div class="file-name">${this.file.path}</div>
-        <div class="file-meta">${this.mode} mode</div>
-      </div>
-      <div class="editor-wrapper">
-        <textarea
-          .value=${this.content}
-          @input=${this.handleInput}
-          spellcheck="false"
-          autocomplete="off"
-          autocapitalize="off"
-          aria-label="Editor for ${this.file.displayName}"
-        ></textarea>
-      </div>
-    `;
+    return html`<div class="editor-host"></div>`;
   }
 }

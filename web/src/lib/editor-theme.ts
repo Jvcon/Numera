@@ -87,7 +87,10 @@ export const numeraTheme = EditorView.theme(
       maxWidth: '100%',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
-      verticalAlign: 'middle',
+      // Top-align so the inline error cell shares the gutter element's
+      // line box (same line-height/font-size as the source line), keeping
+      // its baseline in sync with the anchored value results at `top: 0`.
+      verticalAlign: 'top',
     },
     '.numera-result-cell[data-numera-result-anchor]': {
       position: 'absolute',
@@ -102,6 +105,9 @@ export const numeraTheme = EditorView.theme(
       display: 'inline-flex',
       alignItems: 'center',
       gap: 'var(--md-sys-spacing-inline-tight)',
+      // Match the anchored value results' right inset so the "Err" label
+      // isn't flush against the gutter's right edge.
+      paddingRight: 'var(--md-sys-spacing-inline-loose)',
       color: 'color-mix(in srgb, var(--md-sys-color-error) 72%, transparent)',
       fontWeight: '500',
     },

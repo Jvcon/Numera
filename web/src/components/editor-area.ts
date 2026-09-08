@@ -138,15 +138,19 @@ export class NumeraEditor extends LitElement {
         return;
       }
 
-      // If the display target changed, swap doc. Otherwise leave the doc
-      // alone (the user is typing — we'll see their transaction).
-      if (previousIdentity !== identity) {
-        const currentDoc = view.state.doc.toString();
-        if (currentDoc !== displayContent) {
-          view.dispatch({
-            changes: { from: 0, to: currentDoc.length, insert: displayContent },
-          });
-        }
+      // Swap the doc when the display target changed OR the store's
+      // content diverges from what we're showing. The latter happens on
+      // hydrate: the editor mounts on the default fixtures before the
+      // async IndexedDB read resolves, and the file id doesn't change,
+      // so reacting to the identity alone would leave stale content on
+      // screen. During normal typing the editor's doc already matches
+      // the store (setActiveContent runs after view.update), so this
+      // extra check never resets the cursor mid-keystroke.
+      const currentDoc = view.state.doc.toString();
+      if (previousIdentity !== identity || currentDoc !== displayContent) {
+        view.dispatch({
+          changes: { from: 0, to: currentDoc.length, insert: displayContent },
+        });
       }
 
       // Push the latest outcomes into editor state so the gutter's

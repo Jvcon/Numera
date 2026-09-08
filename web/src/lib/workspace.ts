@@ -374,6 +374,20 @@ export class WorkspaceStore {
       console.warn('[numera] persistence failed:', err);
     }
   }
+
+  /**
+   * Immediately write any pending debounced save. The store normally
+   * debounces writes by 400ms; if the page is hidden or torn down
+   * (tab switch, refresh, navigation) before that timer fires, the
+   * pending edits would otherwise be lost. Callers wire this to
+   * `visibilitychange`/`pagehide`.
+   */
+  flush(): void {
+    if (!this.saveTimer) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = null;
+    void this.persistNow();
+  }
 }
 
 function uniqueId(files: readonly WorkspaceFile[]): string {

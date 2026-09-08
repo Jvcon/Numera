@@ -184,6 +184,11 @@ export class NumeraAppShell extends LitElement {
     // Ctrl/Cmd+K opens the command palette.
     window.addEventListener('numera-keyevent', this.handleGlobalKeyEvent as EventListener);
 
+    // Flush any pending debounced save before the page is hidden or
+    // unloaded, so edits survive a refresh/tab-switch.
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    window.addEventListener('pagehide', this.handlePageHide);
+
     try {
       const engine = await initEngine();
       this.store.attachEngine(engine);
@@ -197,7 +202,19 @@ export class NumeraAppShell extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('numera-keyevent', this.handleGlobalKeyEvent as EventListener);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    window.removeEventListener('pagehide', this.handlePageHide);
   }
+
+  private handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      this.store.flush();
+    }
+  };
+
+  private handlePageHide = () => {
+    this.store.flush();
+  };
 
   private handleGlobalKeyEvent = (event: CustomEvent<{ input: { key: string; ctrl: boolean; meta: boolean } }>) => {
     const { input } = event.detail;

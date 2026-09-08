@@ -12,17 +12,7 @@ import '@material/web/list/list-item.js';
 
 import './app';
 
-async function registerServiceWorker(): Promise<void> {
-  if ('serviceWorker' in navigator) {
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js', {
-        type: 'module',
-      });
-      console.log('[numera] service worker registered:', registration.scope);
-    } catch (error) {
-      console.warn('[numera] service worker registration failed:', error);
-    }
-  }
-}
-
-registerServiceWorker();
+// Service worker registration is handled by vite-plugin-pwa via
+// `injectRegister: 'auto'` (see vite.config.ts). Registering `/sw.js`
+// here manually caused a double registration in production and a 404
+// in dev, so it is intentionally omitted.

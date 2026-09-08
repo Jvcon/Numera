@@ -12,6 +12,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "typecheck": "tsc --noEmit",
+    "test:persistence": "node --import tsx --test src/lib/persistence.test.ts",
     "clean": "rm -rf dist .vite"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "fake-indexeddb": "^6.2.5",
     "tsx": "^4.23.13",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",

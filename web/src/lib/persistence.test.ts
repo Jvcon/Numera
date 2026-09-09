@@ -32,12 +32,26 @@ function file(
   pinned: boolean,
   content: string,
   updatedAt: number,
+  folderId: string | null = null,
+  order = 0,
 ) {
-  return { id, path, displayName, pinned, content, updatedAt };
+  return { id, path, displayName, pinned, folderId, order, content, updatedAt };
 }
 
-function snapshot(files: ReturnType<typeof file>[], globalsContent: string) {
-  return { files, globalsContent };
+interface FolderRow {
+  id: string;
+  name: string;
+  pinned: boolean;
+  collapsed: boolean;
+  order: number;
+}
+
+function snapshot(
+  files: ReturnType<typeof file>[],
+  globalsContent: string,
+  folders: FolderRow[] = [],
+) {
+  return { files, folders, globalsContent };
 }
 
 /** `saveWorkspace` restamps updatedAt to `Date.now()`, so a snapshot that
@@ -75,6 +89,26 @@ test('round-trip: save then load returns the stored snapshot exactly', async (t)
     ['a', 'b'],
   );
   assert.equal(loaded.globalsContent, snap.globalsContent);
+});
+
+test('folders round-trip with file folderId/order', async () => {
+  const snap = snapshot(
+    [
+      file('a', 'daily/one.numr', 'One', false, 'a = 1', 111, 'daily', 0),
+      file('b', 'two.numr', 'Two', true, 'b = 2', 222, null, 1),
+    ],
+    'globals',
+    [{ id: 'daily', name: 'Daily', pinned: true, collapsed: false, order: 0 }],
+  );
+
+  await saveWorkspace(snap);
+  const loaded = await loadWorkspace();
+
+  assert.ok(loaded, 'loadWorkspace should return a snapshot after a save');
+  assert.deepEqual(loaded.folders, snap.folders);
+  assert.equal(loaded.files.find((f) => f.id === 'a')?.folderId, 'daily');
+  assert.equal(loaded.files.find((f) => f.id === 'a')?.order, 0);
+  assert.equal(loaded.files.find((f) => f.id === 'b')?.folderId, null);
 });
 
 test('first run (empty stores) returns null', async () => {

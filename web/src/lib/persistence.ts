@@ -3,6 +3,7 @@
  *
  * Stores a single workspace snapshot:
  *   - `files`      — one row per file, keyed by id
+ *   - `folders`    — one row per folder, keyed by id
  *   - `globals`    — single row keyed by a constant
  *   - `meta`       — schema version + last-saved timestamp
  *
@@ -14,9 +15,10 @@
  */
 
 const DB_NAME = 'numera-workspace';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORE_FILES = 'files';
+const STORE_FOLDERS = 'folders';
 const STORE_GLOBALS = 'globals';
 const STORE_META = 'meta';
 
@@ -27,8 +29,20 @@ export interface PersistedFile {
   path: string;
   displayName: string;
   pinned: boolean;
+  /** References a `PersistedFolder.id`; null = root level. */
+  folderId: string | null;
+  /** Sort key within its scope (root, or its folder). */
+  order: number;
   content: string;
   updatedAt: number;
+}
+
+export interface PersistedFolder {
+  id: string;
+  name: string;
+  pinned: boolean;
+  collapsed: boolean;
+  order: number;
 }
 
 export interface PersistedMeta {
@@ -38,6 +52,7 @@ export interface PersistedMeta {
 
 interface WorkspaceSnapshot {
   files: PersistedFile[];
+  folders: PersistedFolder[];
   globalsContent: string;
 }
 
@@ -51,8 +66,15 @@ function openDb(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = () => {
       const db = request.result;
+      // v1 → v2: add the `folders` store. The existing `files`/`globals`/
+      // `meta` stores are left untouched so persisted data survives the
+      // upgrade; `folderId`/`order` on file rows are just extra
+      // properties and need no schema change.
       if (!db.objectStoreNames.contains(STORE_FILES)) {
         db.createObjectStore(STORE_FILES, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_FOLDERS)) {
+        db.createObjectStore(STORE_FOLDERS, { keyPath: 'id' });
       }
       if (!db.objectStoreNames.contains(STORE_GLOBALS)) {
         db.createObjectStore(STORE_GLOBALS);
@@ -108,72 +130,107 @@ export async function loadWorkspace(): Promise<WorkspaceSnapshot | null> {
   });
   if (!hasAnyData) return null;
 
-  return tx(db, [STORE_FILES, STORE_GLOBALS], 'readonly', async (txn) => {
-    const fileStore = txn.objectStore(STORE_FILES);
-    const globalsStore = txn.objectStore(STORE_GLOBALS);
+  return tx(
+    db,
+    [STORE_FILES, STORE_FOLDERS, STORE_GLOBALS],
+    'readonly',
+    async (txn) => {
+      const fileStore = txn.objectStore(STORE_FILES);
+      const folderStore = txn.objectStore(STORE_FOLDERS);
+      const globalsStore = txn.objectStore(STORE_GLOBALS);
 
-    const filesReq = fileStore.getAll();
-    const globalsReq = globalsStore.get(GLOBALS_KEY);
+      const filesReq = fileStore.getAll();
+      const foldersReq = folderStore.getAll();
+      const globalsReq = globalsStore.get(GLOBALS_KEY);
 
-    const [persistedFiles, globalsRaw] = await Promise.all([
-      reqToPromise<PersistedFile[]>(filesReq),
-      reqToPromise<{ content: string } | undefined>(globalsReq),
-    ]);
+      const [persistedFiles, persistedFolders, globalsRaw] =
+        await Promise.all([
+          reqToPromise<PersistedFile[]>(filesReq),
+          reqToPromise<PersistedFolder[]>(foldersReq),
+          reqToPromise<{ content: string } | undefined>(globalsReq),
+        ]);
 
-    return {
-      files: (persistedFiles ?? []).map((p) => ({
-        id: p.id,
-        path: p.path,
-        displayName: p.displayName,
-        pinned: p.pinned,
-        content: p.content,
-        updatedAt: p.updatedAt,
-      })),
-      globalsContent: globalsRaw?.content ?? '',
-    };
-  });
+      return {
+        files: (persistedFiles ?? []).map((p, i) => ({
+          id: p.id,
+          path: p.path,
+          displayName: p.displayName,
+          pinned: p.pinned,
+          // v1 snapshots predate folders/ordering — the store layer
+          // re-derives `folderId` from the path prefix and falls back to
+          // the array index for `order`.
+          folderId: p.folderId ?? null,
+          order: p.order ?? i,
+          content: p.content,
+          updatedAt: p.updatedAt,
+        })),
+        folders: (persistedFolders ?? []).map((fd) => ({ ...fd })),
+        globalsContent: globalsRaw?.content ?? '',
+      };
+    },
+  );
 }
 
 /** Atomically write the full workspace snapshot. */
 export async function saveWorkspace(snapshot: WorkspaceSnapshot): Promise<void> {
   const db = await openDb();
   const now = Date.now();
+  const folders = snapshot.folders ?? [];
 
-  await tx(db, [STORE_FILES, STORE_GLOBALS, STORE_META], 'readwrite', async (txn) => {
-    const fileStore = txn.objectStore(STORE_FILES);
-    const globalsStore = txn.objectStore(STORE_GLOBALS);
-    const metaStore = txn.objectStore(STORE_META);
+  await tx(
+    db,
+    [STORE_FILES, STORE_FOLDERS, STORE_GLOBALS, STORE_META],
+    'readwrite',
+    async (txn) => {
+      const fileStore = txn.objectStore(STORE_FILES);
+      const folderStore = txn.objectStore(STORE_FOLDERS);
+      const globalsStore = txn.objectStore(STORE_GLOBALS);
+      const metaStore = txn.objectStore(STORE_META);
 
-    fileStore.clear();
-    for (const file of snapshot.files) {
-      fileStore.put({
-        id: file.id,
-        path: file.path,
-        displayName: file.displayName,
-        pinned: file.pinned,
-        content: file.content,
-        updatedAt: now,
-      });
-    }
+      fileStore.clear();
+      for (const file of snapshot.files) {
+        fileStore.put({
+          id: file.id,
+          path: file.path,
+          displayName: file.displayName,
+          pinned: file.pinned,
+          folderId: file.folderId ?? null,
+          order: file.order ?? 0,
+          content: file.content,
+          updatedAt: now,
+        });
+      }
 
-    globalsStore.put({ content: snapshot.globalsContent }, GLOBALS_KEY);
+      folderStore.clear();
+      for (const folder of folders) {
+        folderStore.put({ ...folder });
+      }
 
-    metaStore.put(
-      {
-        schemaVersion: DB_VERSION,
-        lastSavedAt: now,
-      },
-      GLOBALS_KEY,
-    );
-  });
+      globalsStore.put({ content: snapshot.globalsContent }, GLOBALS_KEY);
+
+      metaStore.put(
+        {
+          schemaVersion: DB_VERSION,
+          lastSavedAt: now,
+        },
+        GLOBALS_KEY,
+      );
+    },
+  );
 }
 
 /** Erase the entire workspace. Used by tests and a future "reset" action. */
 export async function clearWorkspace(): Promise<void> {
   const db = await openDb();
-  await tx(db, [STORE_FILES, STORE_GLOBALS, STORE_META], 'readwrite', async (txn) => {
-    txn.objectStore(STORE_FILES).clear();
-    txn.objectStore(STORE_GLOBALS).clear();
-    txn.objectStore(STORE_META).clear();
-  });
+  await tx(
+    db,
+    [STORE_FILES, STORE_FOLDERS, STORE_GLOBALS, STORE_META],
+    'readwrite',
+    async (txn) => {
+      txn.objectStore(STORE_FILES).clear();
+      txn.objectStore(STORE_FOLDERS).clear();
+      txn.objectStore(STORE_GLOBALS).clear();
+      txn.objectStore(STORE_META).clear();
+    },
+  );
 }

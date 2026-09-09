@@ -1,8 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { cycleTheme, type ThemeSetting } from '../lib/theme';
+import { getSettings, subscribeSettings } from '../lib/settings';
 import { WorkspaceStore } from '../lib/workspace';
 import { initEngine } from '../lib/engine';
+import { runSync } from '../lib/sync';
 import './top-bar';
 import './sidebar';
 import './editor-area';
@@ -10,12 +12,23 @@ import './status-bar';
 import './command-palette';
 import './snackbar';
 import './fab';
+import './settings-page';
 
 interface SidebarFile {
   id: string;
   path: string;
   displayName: string;
   pinned: boolean;
+  folderId: string | null;
+  order: number;
+}
+
+interface SidebarFolder {
+  id: string;
+  name: string;
+  pinned: boolean;
+  collapsed: boolean;
+  order: number;
 }
 
 @customElement('numera-app-shell')
@@ -56,6 +69,12 @@ export class NumeraAppShell extends LitElement {
       grid-area: status-bar;
       background-color: var(--md-sys-color-surface-container-highest);
       border-top: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    numera-settings-page {
+      grid-area: 1 / 1 / 4 / 3;
+      min-width: 0;
+      min-height: 0;
     }
 
     .sidebar-backdrop {
@@ -144,6 +163,9 @@ export class NumeraAppShell extends LitElement {
   private sidebarFiles: SidebarFile[] = [];
 
   @state()
+  private sidebarFolders: SidebarFolder[] = [];
+
+  @state()
   private selectedFileId: string | null = null;
 
   @state()
@@ -155,7 +177,12 @@ export class NumeraAppShell extends LitElement {
   @state()
   private editingGlobals = false;
 
+  @state()
+  private settingsOpen = false;
+
   private store = new WorkspaceStore();
+
+  private settingsUnsub: (() => void) | null = null;
 
   async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -174,12 +201,27 @@ export class NumeraAppShell extends LitElement {
           path: f.path,
           displayName: f.displayName,
           pinned: f.pinned,
+          folderId: f.folderId,
+          order: f.order,
         }));
+      this.sidebarFolders = state.folders.map((fd) => ({
+        id: fd.id,
+        name: fd.name,
+        pinned: fd.pinned,
+        collapsed: fd.collapsed,
+        order: fd.order,
+      }));
       this.selectedFileId = state.activeFileId;
       this.editingGlobals = state.editingTarget === 'globals';
       this.mode = state.mode;
       this.lastError = state.lastError;
     });
+
+    // Push the current settings into the store so the first evaluation
+    // is formatted per user prefs, then live-update (re-format only,
+    // no re-evaluation) whenever the settings page changes them.
+    this.store.setSettings(getSettings());
+    this.settingsUnsub = subscribeSettings((s) => this.store.setSettings(s));
 
     // Ctrl/Cmd+K opens the command palette.
     window.addEventListener('numera-keyevent', this.handleGlobalKeyEvent as EventListener);
@@ -197,10 +239,37 @@ export class NumeraAppShell extends LitElement {
       console.error('[numera] failed to initialise engine:', err);
       this.lastError = err instanceof Error ? err.message : String(err);
     }
+
+    // Auto-sync on startup when a WebDAV URL is configured. Fire-and-forget so
+    // the shell paints immediately; the outcome surfaces through the snackbar.
+    const { url, folder, username, password } = getSettings().sync.webdav;
+    if (url) {
+      void (async () => {
+        try {
+          const result = await runSync(this.store, { url, folder, username, password });
+          const { pushed, pulled, conflicts, deleted } = result;
+          if (pushed === 0 && pulled === 0 && conflicts === 0 && deleted === 0) {
+            this.showSnackbar('Already up to date');
+          } else {
+            let summary = `Synced: ${pushed} up, ${pulled} down`;
+            if (conflicts > 0) {
+              summary += `, ${conflicts} conflict${conflicts === 1 ? '' : 's'}`;
+            }
+            if (deleted > 0) summary += `, ${deleted} deleted`;
+            this.showSnackbar(summary);
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.showSnackbar(`Sync failed: ${message}`);
+        }
+      })();
+    }
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.settingsUnsub?.();
+    this.settingsUnsub = null;
     window.removeEventListener('numera-keyevent', this.handleGlobalKeyEvent as EventListener);
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('pagehide', this.handlePageHide);
@@ -259,6 +328,93 @@ export class NumeraAppShell extends LitElement {
     }
   };
 
+  private handleFilePin = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string }>;
+    this.store.togglePin(custom.detail.id);
+  };
+
+  private handleFileRename = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string; name: string }>;
+    this.store.renameFile(custom.detail.id, custom.detail.name);
+  };
+
+  private handleFileExport = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string }>;
+    const file = this.store
+      .getState()
+      .files.find((f) => f.id === custom.detail.id);
+    if (!file) return;
+    const filename = `${file.displayName || file.path.split('/').pop() || 'file'}.numr`;
+    const blob = new Blob([file.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  private handleFileDelete = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string }>;
+    this.store.deleteFile(custom.detail.id);
+  };
+
+  private handleFileReorder = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string; beforeId: string | null }>;
+    this.store.moveFile(custom.detail.id, custom.detail.beforeId);
+  };
+
+  private handleFileMoveFolder = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string; folderId: string | null }>;
+    this.store.moveFileToFolder(custom.detail.id, custom.detail.folderId);
+  };
+
+  private handleFolderToggle = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string }>;
+    this.store.toggleFolderCollapsed(custom.detail.id);
+  };
+
+  private handleFolderPin = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string }>;
+    this.store.toggleFolderPin(custom.detail.id);
+  };
+
+  private handleFolderRename = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string; name: string }>;
+    this.store.renameFolder(custom.detail.id, custom.detail.name);
+  };
+
+  private handleFolderDelete = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string }>;
+    this.store.deleteFolder(custom.detail.id);
+  };
+
+  private handleFolderCreate = (event: Event) => {
+    const custom = event as CustomEvent<{ name: string; moveFileId?: string }>;
+    try {
+      const folder = this.store.createFolder(custom.detail.name);
+      if (custom.detail.moveFileId) {
+        this.store.moveFileToFolder(custom.detail.moveFileId, folder.id);
+      }
+    } catch {
+      // createFolder throws on blank or path-separator names; the sidebar
+      // already trims, so this only guards against unexpected input.
+    }
+  };
+
+  private handleSettingsOpen = () => {
+    this.settingsOpen = true;
+  };
+
+  private handleSettingsClose = () => {
+    this.settingsOpen = false;
+  };
+
+  private handleResultCopied = (event: Event) => {
+    const custom = event as CustomEvent<{ value: string }>;
+    this.showSnackbar(`Copied ${custom.detail.value}`);
+  };
+
   private handleThemeToggle = () => {
     this.theme = cycleTheme(this.theme);
   };
@@ -310,9 +466,18 @@ export class NumeraAppShell extends LitElement {
   }
 
   render() {
+    if (this.settingsOpen) {
+      return html`
+        <numera-settings-page
+          .store=${this.store}
+          @settings-close=${this.handleSettingsClose}
+        ></numera-settings-page>
+      `;
+    }
+
     const activeFile = this.sidebarFiles.find((f) => f.id === this.selectedFileId);
     const fileName = activeFile
-      ? (activeFile.path.split('/').pop()?.replace(/\.numr$/, '') ?? activeFile.path)
+      ? (activeFile.displayName || activeFile.path.split('/').pop()?.replace(/\.numr$/, '') || activeFile.path)
       : 'Numera';
 
     return html`
@@ -320,23 +485,34 @@ export class NumeraAppShell extends LitElement {
         .fileName=${fileName}
         .sidebarOpen=${this.sidebarOpen}
         .sidebarCollapsed=${this.sidebarCollapsed}
-        .theme=${this.theme}
         .editingGlobals=${this.editingGlobals}
         @menu-toggle=${this.handleMenuToggle}
-        @theme-toggle=${this.handleThemeToggle}
         @global-open=${this.handleGlobalOpen}
         @globals-close=${this.handleGlobalsClose}
       ></numera-top-bar>
 
       <numera-sidebar
         .files=${this.sidebarFiles}
+        .folders=${this.sidebarFolders}
         .selectedId=${this.selectedFileId ?? ''}
         @file-select=${this.handleFileSelect}
-        @file-create=${this.handleFileCreate}
+        @file-pin=${this.handleFilePin}
+        @file-rename=${this.handleFileRename}
+        @file-export=${this.handleFileExport}
+        @file-delete=${this.handleFileDelete}
+        @file-reorder=${this.handleFileReorder}
+        @file-move-folder=${this.handleFileMoveFolder}
+        @folder-toggle=${this.handleFolderToggle}
+        @folder-pin=${this.handleFolderPin}
+        @folder-rename=${this.handleFolderRename}
+        @folder-delete=${this.handleFolderDelete}
+        @folder-create=${this.handleFolderCreate}
+        @theme-toggle=${this.handleThemeToggle}
+        @settings-open=${this.handleSettingsOpen}
         @collapse-toggle=${this.handleCollapseToggle}
       ></numera-sidebar>
 
-      <numera-editor .store=${this.store}></numera-editor>
+      <numera-editor .store=${this.store} @result-copied=${this.handleResultCopied}></numera-editor>
 
       <numera-status-bar .mode=${this.mode} .lastError=${this.lastError}></numera-status-bar>
 

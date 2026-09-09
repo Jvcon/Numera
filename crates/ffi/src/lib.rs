@@ -26,7 +26,8 @@ impl NumeraEngine {
     /// Load globals
     pub fn load_globals(&self, content: &str) -> Result<(), String> {
         let mut engine = self.engine.lock().map_err(|e| e.to_string())?;
-        engine.load_globals(content).map_err(|e| e.to_string())
+        engine.set_globals(content);
+        Ok(())
     }
 
     /// Load a document

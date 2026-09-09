@@ -1,6 +1,34 @@
 use chrono::{Local, NaiveDate};
 use crate::error::EngineError;
 
+/// Typed date/time evaluation result.
+///
+/// `display` keeps the engine's current human-facing formatting (the
+/// fallback the editor shows); `iso` carries the raw ISO-8601 value the
+/// JS layer re-formats with `Intl.DateTimeFormat`. Date-only results
+/// (today / yesterday / tomorrow / date arithmetic / parsed literals)
+/// use a `YYYY-MM-DD` ISO string; `now` uses a full `YYYY-MM-DDTHH:MM:SS`
+/// local datetime.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DateTimeValue {
+    pub display: String,
+    pub iso: String,
+}
+
+impl DateTimeValue {
+    fn new(display: String, iso: String) -> Self {
+        Self { display, iso }
+    }
+
+    /// Date-only value: display and ISO coincide (`YYYY-MM-DD`).
+    fn date_only(formatted: String) -> Self {
+        Self {
+            iso: formatted.clone(),
+            display: formatted,
+        }
+    }
+}
+
 /// Date/time expression evaluator
 pub struct DateTimeEvaluator;
 
@@ -21,26 +49,42 @@ impl DateTimeEvaluator {
         lower.chars().filter(|c| *c == '-').count() == 2 && lower.len() >= 8
     }
 
-    /// Evaluate a date/time expression
+    /// Evaluate a date/time expression, returning only the display string.
     pub fn evaluate(expr: &str) -> Result<String, EngineError> {
+        Self::evaluate_typed(expr).map(|v| v.display)
+    }
+
+    /// Evaluate a date/time expression, returning the display string and
+    /// the raw ISO-8601 value together.
+    pub fn evaluate_typed(expr: &str) -> Result<DateTimeValue, EngineError> {
         let lower = expr.trim().to_lowercase();
 
         if lower == "now" {
-            return Ok(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+            let now = Local::now();
+            return Ok(DateTimeValue::new(
+                now.format("%Y-%m-%d %H:%M:%S").to_string(),
+                now.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            ));
         }
 
         if lower == "today" {
-            return Ok(Local::now().format("%Y-%m-%d").to_string());
+            return Ok(DateTimeValue::date_only(
+                Local::now().format("%Y-%m-%d").to_string(),
+            ));
         }
 
         if lower == "yesterday" {
             let yesterday = Local::now() - chrono::Duration::days(1);
-            return Ok(yesterday.format("%Y-%m-%d").to_string());
+            return Ok(DateTimeValue::date_only(
+                yesterday.format("%Y-%m-%d").to_string(),
+            ));
         }
 
         if lower == "tomorrow" {
             let tomorrow = Local::now() + chrono::Duration::days(1);
-            return Ok(tomorrow.format("%Y-%m-%d").to_string());
+            return Ok(DateTimeValue::date_only(
+                tomorrow.format("%Y-%m-%d").to_string(),
+            ));
         }
 
         // Parse date arithmetic
@@ -50,14 +94,16 @@ impl DateTimeEvaluator {
 
         // Try to parse as date
         if let Ok(date) = NaiveDate::parse_from_str(expr.trim(), "%Y-%m-%d") {
-            return Ok(date.format("%Y-%m-%d").to_string());
+            return Ok(DateTimeValue::date_only(
+                date.format("%Y-%m-%d").to_string(),
+            ));
         }
 
         Err(EngineError::DateTimeError(format!("Unknown date/time expression: {}", expr)))
     }
 
     /// Evaluate date arithmetic like "2024-01-15 + 30 days"
-    fn evaluate_date_arithmetic(expr: &str) -> Result<String, EngineError> {
+    fn evaluate_date_arithmetic(expr: &str) -> Result<DateTimeValue, EngineError> {
         let parts: Vec<&str> = if expr.contains(" + ") {
             expr.split(" + ").collect()
         } else {
@@ -97,7 +143,9 @@ impl DateTimeEvaluator {
             return Err(EngineError::DateTimeError("Unknown duration unit".to_string()));
         };
 
-        Ok(result.format("%Y-%m-%d").to_string())
+        Ok(DateTimeValue::date_only(
+            result.format("%Y-%m-%d").to_string(),
+        ))
     }
 
     /// Get the number of days between two dates
@@ -127,5 +175,16 @@ mod tests {
     fn test_date_arithmetic() {
         let result = DateTimeEvaluator::evaluate("2024-01-15 + 30 days").unwrap();
         assert_eq!(result, "2024-02-14");
+    }
+
+    #[test]
+    fn test_evaluate_typed_carries_display_and_iso() {
+        let typed = DateTimeEvaluator::evaluate_typed("2024-01-15").unwrap();
+        assert_eq!(typed.display, "2024-01-15");
+        assert_eq!(typed.iso, "2024-01-15");
+
+        let typed = DateTimeEvaluator::evaluate_typed("2024-01-15 + 30 days").unwrap();
+        assert_eq!(typed.display, "2024-02-14");
+        assert_eq!(typed.iso, "2024-02-14");
     }
 }

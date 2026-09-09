@@ -16,8 +16,16 @@ use crate::aggregate::AggregationEvaluator;
 /// `error` carries the human-readable failure message when `is_error`
 /// is true.
 ///
+/// `kind` classifies the result value (`"number" | "date" | "string" |
+/// "empty" | "error"`) and `raw_value` carries the machine-readable
+/// original — a JSON number for numbers, an ISO-8601 string for dates,
+/// `Null` for empty/error lines. The JS layer uses these two fields to
+/// re-format results with `Intl` per locale / precision / grouping
+/// settings; `display` remains the engine-formatted fallback.
+///
 /// Serialized field names use camelCase to match the JS `LineOutcome`
-/// interface in `web/src/lib/engine.ts` (`isEmpty`, `isError`).
+/// interface in `web/src/lib/engine.ts` (`isEmpty`, `isError`,
+/// `rawValue`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LineOutcome {
@@ -25,6 +33,8 @@ pub struct LineOutcome {
     pub error: Option<String>,
     pub is_empty: bool,
     pub is_error: bool,
+    pub kind: String,
+    pub raw_value: serde_json::Value,
 }
 
 impl LineOutcome {
@@ -34,15 +44,19 @@ impl LineOutcome {
             error: None,
             is_empty: true,
             is_error: false,
+            kind: "empty".to_string(),
+            raw_value: serde_json::Value::Null,
         }
     }
 
-    fn value(display: String) -> Self {
+    fn value(display: String, kind: &str, raw_value: serde_json::Value) -> Self {
         Self {
             display,
             error: None,
             is_empty: false,
             is_error: false,
+            kind: kind.to_string(),
+            raw_value,
         }
     }
 
@@ -52,6 +66,48 @@ impl LineOutcome {
             error: Some(message),
             is_empty: false,
             is_error: true,
+            kind: "error".to_string(),
+            raw_value: serde_json::Value::Null,
+        }
+    }
+}
+
+/// Typed evaluation result: the formatted `display` string plus the
+/// metadata the JS layer needs to re-format the raw value locally.
+pub(crate) struct EvalValue {
+    pub display: String,
+    pub kind: &'static str,
+    pub raw_value: serde_json::Value,
+}
+
+impl EvalValue {
+    fn empty() -> Self {
+        Self {
+            display: String::new(),
+            kind: "empty",
+            raw_value: serde_json::Value::Null,
+        }
+    }
+
+    /// Number result. `raw_value` is the exact f64 when it is JSON
+    /// representable; NaN / Inf (which `serde_json` cannot carry) fall
+    /// back to `Null` while keeping the display string.
+    fn number(display: String, value: f64) -> Self {
+        let raw_value = serde_json::Number::from_f64(value)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null);
+        Self {
+            display,
+            kind: "number",
+            raw_value,
+        }
+    }
+
+    fn date(display: String, iso: String) -> Self {
+        Self {
+            display,
+            kind: "date",
+            raw_value: serde_json::Value::String(iso),
         }
     }
 }
@@ -142,21 +198,32 @@ impl Engine {
     /// `global.<name>` references are rewritten to plain `<name>`; globals
     /// must already be loaded (via [`set_globals`]) so numr-core can find
     /// them.
+    ///
+    /// Returns only the display string; callers needing the typed raw
+    /// value (kind / raw_value) should use [`Self::eval_typed`].
     pub fn eval(&mut self, expr: &str) -> Result<String, EngineError> {
+        self.eval_typed(expr).map(|v| v.display)
+    }
+
+    /// Typed variant of [`Self::eval`]: additionally classifies the result
+    /// (`kind`) and exposes the raw machine-readable value (`raw_value`)
+    /// so the JS layer can re-format numbers and dates with `Intl`.
+    pub(crate) fn eval_typed(&mut self, expr: &str) -> Result<EvalValue, EngineError> {
         let trimmed = expr.trim();
 
         if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with("//") {
-            return Ok(String::new());
+            return Ok(EvalValue::empty());
         }
 
         if DateTimeEvaluator::is_datetime_expression(trimmed) {
-            return DateTimeEvaluator::evaluate(trimmed);
+            let dt = DateTimeEvaluator::evaluate_typed(trimmed)?;
+            return Ok(EvalValue::date(dt.display, dt.iso));
         }
 
         if AggregationEvaluator::is_aggregation(trimmed) {
             let result = AggregationEvaluator::evaluate(trimmed)
                 .map_err(|e| EngineError::EvalError(e.to_string()))?;
-            return Ok(self.format_number(result));
+            return Ok(EvalValue::number(self.format_number(result), result));
         }
 
         let rewritten = rewrite_global_refs(trimmed);
@@ -175,7 +242,27 @@ impl Engine {
             // `is_error` and shows the message on demand.
             return Err(EngineError::EvalError(err.to_string()));
         }
-        Ok(format_value(&value))
+
+        match value {
+            Value::Empty => Ok(EvalValue::empty()),
+            // Every remaining numr-core value variant is numeric (Decimal
+            // based): Number, BaseNumber, Percentage, Currency,
+            // WithCompoundUnit. There is no string variant in numr-core,
+            // so all successful non-empty lines are reported as numbers.
+            other => {
+                let display = format_value(&other);
+                let raw_value = other
+                    .as_f64()
+                    .and_then(serde_json::Number::from_f64)
+                    .map(serde_json::Value::Number)
+                    .unwrap_or(serde_json::Value::Null);
+                Ok(EvalValue {
+                    display,
+                    kind: "number",
+                    raw_value,
+                })
+            }
+        }
     }
 
     fn format_number(&self, value: f64) -> String {
@@ -206,9 +293,9 @@ impl Engine {
             let outcome = if let Some(msg) = globals_failed.as_ref() {
                 LineOutcome::failure(msg.clone())
             } else {
-                match self.eval(line) {
-                    Ok(display) if display.is_empty() => LineOutcome::empty(),
-                    Ok(display) => LineOutcome::value(display),
+                match self.eval_typed(line) {
+                    Ok(ev) if ev.kind == "empty" => LineOutcome::empty(),
+                    Ok(ev) => LineOutcome::value(ev.display, ev.kind, ev.raw_value),
                     Err(e) => LineOutcome::failure(e.to_string()),
                 }
             };
@@ -364,20 +451,65 @@ mod tests {
     #[test]
     fn test_line_outcome_serializes_camel_case() {
         // The JS `LineOutcome` interface uses camelCase (`isEmpty`,
-        // `isError`); a snake_case serialization would silently break
-        // error rendering in the editor.
+        // `isError`, `rawValue`); a snake_case serialization would
+        // silently break error rendering in the editor.
         let outcome = LineOutcome {
             display: String::new(),
             error: Some("bad".to_string()),
             is_empty: false,
             is_error: true,
+            kind: "error".to_string(),
+            raw_value: serde_json::Value::Null,
         };
         let json = serde_json::to_value(&outcome).unwrap();
         let obj = json.as_object().unwrap();
         assert!(obj.contains_key("isEmpty"), "missing isEmpty: {json}");
         assert!(obj.contains_key("isError"), "missing isError: {json}");
+        assert!(obj.contains_key("rawValue"), "missing rawValue: {json}");
+        assert!(obj.contains_key("kind"), "missing kind: {json}");
         assert!(!obj.contains_key("is_empty"));
         assert!(!obj.contains_key("is_error"));
         assert_eq!(obj["isError"], serde_json::json!(true));
+    }
+
+    #[test]
+    fn test_number_line_carries_kind_and_raw_value() {
+        let mut engine = Engine::new();
+        let outcomes = engine.evaluate_document("100 + 200");
+        assert_eq!(outcomes.len(), 1);
+        assert_eq!(outcomes[0].display, "300");
+        assert_eq!(outcomes[0].kind, "number");
+        assert_eq!(outcomes[0].raw_value.as_f64(), Some(300.0));
+        assert_eq!(
+            outcomes[0].raw_value,
+            serde_json::json!(300.0),
+            "raw_value must serialize as a JSON number"
+        );
+    }
+
+    #[test]
+    fn test_empty_error_and_date_lines_carry_kind_and_raw_value() {
+        let mut engine = Engine::new();
+        let outcomes = engine.evaluate_document("\n# hi\n2026-09-07\n1 + unknown\n42");
+        assert_eq!(outcomes.len(), 5);
+
+        assert_eq!(outcomes[0].kind, "empty");
+        assert!(outcomes[0].raw_value.is_null());
+
+        assert_eq!(outcomes[1].kind, "empty");
+        assert!(outcomes[1].raw_value.is_null());
+
+        assert_eq!(outcomes[2].kind, "date");
+        assert_eq!(outcomes[2].raw_value, serde_json::json!("2026-09-07"));
+        assert_eq!(outcomes[2].raw_value.as_str(), Some("2026-09-07"));
+
+        assert_eq!(outcomes[3].kind, "error");
+        assert!(outcomes[3].raw_value.is_null());
+        assert!(outcomes[3].is_error);
+
+        // Non-empty numeric line must not be mistaken for empty.
+        assert_eq!(outcomes[4].kind, "number");
+        assert!(!outcomes[4].is_empty);
+        assert_eq!(outcomes[4].raw_value.as_f64(), Some(42.0));
     }
 }

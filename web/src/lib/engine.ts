@@ -13,6 +13,8 @@
 
 import init, { WasmEngine as RawWasmEngine } from '../wasm/numera_wasm.js';
 
+export type OutcomeKind = 'number' | 'date' | 'string' | 'empty' | 'error';
+
 export interface LineOutcome {
   /** Formatted result, or empty string for blank/comment/error lines. */
   display: string;
@@ -22,6 +24,14 @@ export interface LineOutcome {
   isEmpty: boolean;
   /** True when this line produced an evaluation error. */
   isError: boolean;
+  /** Value category, driving how `rawValue` is re-formatted with Intl. */
+  kind: OutcomeKind;
+  /**
+   * Machine-readable original value: a number for `kind: 'number'`, an
+   * ISO-8601 string for `kind: 'date'`, and `null` for `'empty'` /
+   * `'error'`. `display` remains the engine-formatted fallback.
+   */
+  rawValue: number | string | null;
 }
 
 /** Shape returned by `initEngine()` so callers can reuse the WASM promise. */

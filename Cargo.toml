@@ -40,8 +40,11 @@ uuid = { version = "1", features = ["v4", "serde", "js"] }
 # 异步
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util"] }
 
-# HTTP
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# HTTP — TLS-neutral baseline; native crates add rustls-tls per-target (wasm uses browser fetch)
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+
+# WebDAV XML (207 Multi-Status)
+roxmltree = { version = "0.21", default-features = false, features = ["std"] }
 
 # 加密
 chacha20poly1305 = "0.11.0"
@@ -49,6 +52,7 @@ hkdf = "0.13.0"
 sha2 = "0.11.0"
 argon2 = "0.6.0"
 rand = "0.10.2"
+bip39 = "2"
 
 # getrandom 0.4 在 wasm32 下需要 wasm_js feature,workspace 统一开启
 getrandom = { version = "0.4", features = ["wasm_js"] }

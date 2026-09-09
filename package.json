@@ -29,9 +29,8 @@
     "glob": "^13.0.0"
   },
   "allowScripts": {
-    "esbuild@0.21.5": true,
-    "esbuild@0.17.19": true,
+    "esbuild": true,
     "sharp@0.33.5": true,
-    "workerd@1.20250718.0": true
+    "workerd": true
   }
 }

@@ -17,13 +17,13 @@
     "clean": "rm -rf dist .wrangler"
   },
   "dependencies": {
-    "@xmldom/xmldom": "^0.8.0",
-    "jose": "^5.0.0"
+    "@xmldom/xmldom": "^0.9.12",
+    "jose": "^6.2.12"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.0.0",
-    "wrangler": "^3.0.0",
-    "vitest": "^1.0.0",
-    "typescript": "^5.0.0"
+    "@cloudflare/workers-types": "^5.20260908.1",
+    "wrangler": "^4.130.0",
+    "vitest": "^5.0.0",
+    "typescript": "^7.0.2"
   }
 }

@@ -26,4 +26,7 @@ pub enum SyncError {
 
     #[error("Sync state error: {0}")]
     StateError(String),
+
+    #[error("WebDAV response parse error: {0}")]
+    DavParseError(String),
 }

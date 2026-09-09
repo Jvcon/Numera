@@ -12,6 +12,6 @@ pub mod conflict;
 
 // Re-export main types
 pub use error::SyncError;
-pub use client::WebDavClient;
+pub use client::{DavEntry, GetFileResult, WebDavClient};
 pub use state::SyncState;
 pub use conflict::ConflictResolver;

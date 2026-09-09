@@ -12,6 +12,9 @@ pub enum CryptoError {
     #[error("Key derivation error: {0}")]
     KeyDerivationError(String),
 
+    #[error("Random number generation failed: {0}")]
+    RngError(String),
+
     #[error("Invalid key: {0}")]
     InvalidKey(String),
 

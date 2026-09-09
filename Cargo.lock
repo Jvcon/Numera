@@ -248,6 +248,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "bip39"
+version = "2.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90dbd31c98227229239363921e60fcf5e558e43ec69094d46fc4996f08d1d5bc"
+dependencies = [
+ "bitcoin_hashes",
+ "serde",
+ "unicode-normalization",
+]
+
+[[package]]
+name = "bitcoin_hashes"
+version = "0.14.101"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bca4c7abb40c8817d77403c880988cfd484f23ab2365726afb2f798363e2c4a2"
+dependencies = [
+ "hex-conservative",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -831,6 +851,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hex-conservative"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db3fef046dca3ca91ee1408a8c1b80ab777e80a4d308d1bf4e7adb3fcb047e08"
+dependencies = [
+ "arrayvec",
+]
+
+[[package]]
 name = "hkdf"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1318,7 +1347,9 @@ name = "numera-crypto"
 version = "0.1.0"
 dependencies = [
  "argon2",
+ "bip39",
  "chacha20poly1305",
+ "getrandom 0.4.3",
  "hkdf",
  "rand 0.10.2",
  "serde",
@@ -1371,6 +1402,7 @@ dependencies = [
  "chrono",
  "numera-format",
  "reqwest",
+ "roxmltree",
  "serde",
  "serde_json",
  "sha2",
@@ -1384,7 +1416,9 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
+ "numera-crypto",
  "numera-engine",
+ "numera-sync",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -1844,6 +1878,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "roxmltree"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1964b10c76125c36f8afe190065a4bf9a87bf324842c05701330bba9f1cacbb"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "rust_decimal"
 version = "1.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1881,9 +1924,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.43"
+version = "0.23.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0283386ce02abc0151e1761d08802dfe86c173b0b494af5cbc086574e453da06"
+checksum = "6725596c3f2c3a0aef021139e145d4eafe314a6623e4680ca83852b2c67ab2ba"
 dependencies = [
  "once_cell",
  "ring",
@@ -2519,6 +2562,15 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd4f6878c9cb28d874b009da9e8d183b5abc80117c40bbd187a1fde336be6e8"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "unicode-segmentation"

@@ -7,12 +7,12 @@ export class NumeraDevOverlay extends LitElement {
   static styles = css`
     :host {
       position: fixed;
-      inset-inline-end: var(--md-sys-spacing-block);
+      inset-inline-start: var(--md-sys-spacing-block);
       inset-block-end: calc(var(--md-sys-bottom-bar-height) + var(--md-sys-spacing-block));
       z-index: 10;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
+      align-items: flex-start;
       gap: var(--md-sys-spacing-inline);
       pointer-events: none;
     }
@@ -62,7 +62,7 @@ export class NumeraDevOverlay extends LitElement {
       font-size: var(--md-sys-typescale-label-small-size);
       line-height: var(--md-sys-typescale-label-small-line);
       box-shadow: var(--md-sys-elevation-menu);
-      transform-origin: bottom right;
+      transform-origin: bottom left;
       animation: panel-enter var(--md-sys-motion-duration-emphasized)
         var(--md-sys-motion-easing-emphasized-decelerate);
     }
@@ -115,7 +115,7 @@ export class NumeraDevOverlay extends LitElement {
 
     @media (max-width: 639px) {
       :host {
-        inset-inline-end: var(--md-sys-spacing-inline);
+        inset-inline-start: var(--md-sys-spacing-inline);
         inset-block-end: calc(var(--md-sys-bottom-bar-height) + var(--md-sys-spacing-inline));
       }
     }

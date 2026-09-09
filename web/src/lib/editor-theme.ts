@@ -30,7 +30,8 @@ export const numeraTheme = EditorView.theme(
     '&': {
       backgroundColor: 'var(--md-sys-color-surface)',
       color: 'var(--md-sys-color-on-surface)',
-      fontSize: 'var(--md-sys-typescale-mono-medium-size)',
+      fontSize:
+        'var(--numera-editor-font-size, var(--md-sys-typescale-mono-medium-size))',
       height: '100%',
     },
     '.cm-content': {
@@ -72,7 +73,8 @@ export const numeraTheme = EditorView.theme(
     '.cm-gutter.cm-result-gutter .cm-gutterElement': {
       position: 'relative',
       fontFamily: 'var(--md-sys-typescale-font-mono)',
-      fontSize: 'var(--md-sys-typescale-mono-medium-size)',
+      fontSize:
+        'var(--numera-editor-font-size, var(--md-sys-typescale-mono-medium-size))',
       lineHeight: 'var(--md-sys-typescale-mono-medium-line)',
       fontWeight: '500',
       textAlign: 'right',
@@ -100,22 +102,37 @@ export const numeraTheme = EditorView.theme(
     '.numera-result-value': {
       color: 'var(--md-sys-color-tertiary)',
       fontWeight: '500',
+      cursor: 'pointer',
+      transition: 'color var(--md-sys-motion-duration-fast) var(--md-sys-motion-easing-standard)',
+    },
+    '.numera-result-value:hover': {
+      color: 'color-mix(in srgb, var(--md-sys-color-tertiary) 82%, var(--md-sys-color-on-surface))',
+      textDecoration: 'underline',
+      textUnderlineOffset: '3px',
     },
     '.numera-result-error': {
       display: 'inline-flex',
       alignItems: 'center',
       gap: 'var(--md-sys-spacing-inline-tight)',
-      // Match the anchored value results' right inset so the "Err" label
-      // isn't flush against the gutter's right edge.
-      paddingRight: 'var(--md-sys-spacing-inline-loose)',
-      color: 'color-mix(in srgb, var(--md-sys-color-error) 72%, transparent)',
+      // Inset the affordance from the gutter's right edge to match the
+      // anchored value results' right inset (those are absolute).
+      marginRight: 'var(--md-sys-spacing-inline-loose)',
+      color: 'var(--md-sys-color-error)',
       fontWeight: '500',
+      cursor: 'pointer',
+      transition: 'color var(--md-sys-motion-duration-fast) var(--md-sys-motion-easing-standard)',
+    },
+    '.numera-result-error:hover': {
+      color: 'color-mix(in srgb, var(--md-sys-color-error) 82%, var(--md-sys-color-on-surface))',
     },
     '.numera-error-icon': {
       flexShrink: '0',
     },
     '.numera-error-label': {
+      // A dashed red underline marks the "Err" label as a tappable
+      // "more info" affordance, without a filled pill behind it.
       textDecoration: 'underline dashed',
+      textDecorationColor: 'var(--md-sys-color-error)',
       textUnderlineOffset: '3px',
     },
     '.numera-result-empty': {

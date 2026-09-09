@@ -92,8 +92,29 @@ export class NumeraSnackbar extends LitElement {
 
   private dismissTimer: ReturnType<typeof setTimeout> | null = null;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    // Coordinate with the editor's error tooltip: when a tooltip opens,
+    // it dispatches `numera-dismiss-snackbar` so this toast dismisses
+    // and the two overlays never coexist.
+    window.addEventListener('numera-dismiss-snackbar', this.handleDismissRequest);
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.removeEventListener('numera-dismiss-snackbar', this.handleDismissRequest);
+  }
+
+  private handleDismissRequest = (): void => {
+    this.dismiss();
+  };
+
   show(message: string, options: SnackbarOptions = {}): void {
     const duration = options.duration ?? 3000;
+    // Coordinate with the error tooltip: showing the toast dismisses any
+    // open tooltip so the two overlays never coexist.
+    window.dispatchEvent(new CustomEvent('numera-dismiss-tooltip'));
+
     this.message = message;
     this.actionLabel = options.action ?? null;
     this.open = true;

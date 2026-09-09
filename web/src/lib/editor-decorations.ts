@@ -48,25 +48,188 @@ function createInfoIcon(): SVGSVGElement {
 }
 
 /**
- * Lightweight touch tooltip for error markers. The full message is
- * never rendered inline; on touch there is no native `title`, so a
- * `pointerup` tap reveals a brief, fixed-position popover appended to
- * the body (outside the gutter, which clips its own overflow).
+ * Copy `text` to the clipboard. Prefers the async Clipboard API
+ * (secure contexts); falls back to a temporary hidden `<textarea>` +
+ * `document.execCommand('copy')` when the async API is missing (e.g.
+ * served over plain HTTP). Resolves to whether the copy succeeded.
+ */
+async function copyText(text: string): Promise<boolean> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the legacy path below.
+    }
+  }
+
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    // Keep it off-screen but still selectable for the copy command.
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Material 3 plain tooltip for error markers, built as a lightweight
+ * `position: fixed` element appended to the document body (outside the
+ * gutter, which clips its own overflow). It follows the M3 tooltip
+ * tokens — inverse-surface container, inverse-on-surface text, tooltip
+ * shape (4px), tooltip elevation, body-small typography — and is shown
+ * on demand when the "Err" affordance is pressed.
+ *
+ * The element is reused across presses: switching to a different "Err"
+ * marker animates the same node to its new position instead of tearing
+ * it down and rebuilding it. Lifecycle is re-bound to the new anchor on
+ * every press (outside-press / Escape / scroll / timeout dismissal), and
+ * a window event (`numera-dismiss-tooltip`) lets the snackbar toast
+ * dismiss it explicitly.
  */
 let errorTooltipEl: HTMLDivElement | null = null;
 let errorTooltipTimer: ReturnType<typeof setTimeout> | null = null;
+let errorTooltipCleanup: (() => void) | null = null;
+let errorTooltipAnimation: Animation | null = null;
+
+const ERROR_TOOLTIP_TIMEOUT_MS = 5000;
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** Read a motion duration token from the computed style, in ms. */
+function motionDurationMs(el: Element, token: string): number {
+  const value = getComputedStyle(el).getPropertyValue(token).trim();
+  const match = /^([\d.]+)(ms|s)$/.exec(value);
+  if (!match) return 200;
+  const amount = Number(match[1]);
+  return match[2] === 's' ? amount * 1000 : amount;
+}
+
+/** Read the emphasized easing token from the computed style. */
+function motionEasing(el: Element): string {
+  const value = getComputedStyle(el)
+    .getPropertyValue('--md-sys-motion-easing-emphasized')
+    .trim();
+  return value || 'cubic-bezier(0.2, 0, 0, 1)';
+}
 
 function dismissErrorTooltip(): void {
   if (errorTooltipTimer !== null) {
     clearTimeout(errorTooltipTimer);
     errorTooltipTimer = null;
   }
+  errorTooltipCleanup?.();
+  errorTooltipCleanup = null;
+  errorTooltipAnimation?.cancel();
+  errorTooltipAnimation = null;
   errorTooltipEl?.remove();
   errorTooltipEl = null;
 }
 
+/**
+ * Compute where the tooltip should sit for `anchor`, kept inside the
+ * viewport. The "Err" marker lives in a right-side gutter, so the
+ * tooltip opens leftward (right-aligned to the marker) and flips above
+ * the anchor when there isn't enough room below.
+ */
+function computeErrorTooltipPosition(
+  tip: HTMLElement,
+  anchor: HTMLElement,
+): { left: number; top: number } {
+  const margin = 8;
+  const gap = 4;
+  const rect = anchor.getBoundingClientRect();
+  const tipRect = tip.getBoundingClientRect();
+
+  let left = rect.right - tipRect.width;
+  left = Math.min(
+    Math.max(left, margin),
+    Math.max(margin, window.innerWidth - tipRect.width - margin),
+  );
+
+  let top = rect.bottom + gap;
+  if (top + tipRect.height > window.innerHeight - margin) {
+    top = rect.top - gap - tipRect.height;
+  }
+  top = Math.min(
+    Math.max(top, margin),
+    Math.max(margin, window.innerHeight - tipRect.height - margin),
+  );
+
+  return { left: Math.round(left), top: Math.round(top) };
+}
+
+function resetErrorTooltipTimer(): void {
+  if (errorTooltipTimer !== null) clearTimeout(errorTooltipTimer);
+  errorTooltipTimer = setTimeout(dismissErrorTooltip, ERROR_TOOLTIP_TIMEOUT_MS);
+}
+
+/**
+ * Bind the dismissal lifecycle to `anchor`. Any previous bindings are
+ * removed first, so listeners are never duplicated or leaked. The
+ * window-level `numera-dismiss-tooltip` listener exists only while the
+ * tooltip is open (it is removed on dismiss).
+ */
+function bindErrorTooltipLifecycle(anchor: HTMLElement): void {
+  errorTooltipCleanup?.();
+  errorTooltipCleanup = null;
+
+  const onDocumentMouseDown = (event: Event): void => {
+    // The press that opened the tooltip (whose target is inside the
+    // anchor) must not immediately dismiss it. The anchor lives inside
+    // the editor's shadow DOM, so by the time this document-level
+    // listener runs, `event.target` has been retargeted to the shadow
+    // host and `anchor.contains(target)` would be false. Use the
+    // composed path instead so the guard still matches the real target.
+    if (event.composedPath().includes(anchor)) return;
+    dismissErrorTooltip();
+  };
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') dismissErrorTooltip();
+  };
+  const onScroll = (): void => {
+    dismissErrorTooltip();
+  };
+  const onDismissRequest = (): void => {
+    dismissErrorTooltip();
+  };
+
+  document.addEventListener('mousedown', onDocumentMouseDown);
+  document.addEventListener('keydown', onKeyDown);
+  window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+  window.addEventListener('numera-dismiss-tooltip', onDismissRequest);
+
+  errorTooltipCleanup = () => {
+    document.removeEventListener('mousedown', onDocumentMouseDown);
+    document.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('scroll', onScroll, { capture: true });
+    window.removeEventListener('numera-dismiss-tooltip', onDismissRequest);
+  };
+}
+
 function showErrorTooltip(message: string, anchor: HTMLElement): void {
-  dismissErrorTooltip();
+  // Coordinate with the snackbar toast: opening the tooltip dismisses
+  // any open toast so the two overlays never coexist.
+  window.dispatchEvent(new CustomEvent('numera-dismiss-snackbar'));
+
+  const reduceMotion = prefersReducedMotion();
+
+  if (errorTooltipEl && errorTooltipEl.isConnected) {
+    moveErrorTooltip(message, anchor, reduceMotion);
+    return;
+  }
 
   const tip = document.createElement('div');
   tip.className = 'numera-error-tooltip';
@@ -76,15 +239,17 @@ function showErrorTooltip(message: string, anchor: HTMLElement): void {
   const styles: Record<string, string> = {
     position: 'fixed',
     zIndex: '2147483647',
-    maxWidth: 'min(24rem, calc(100vw - 24px))',
-    padding: 'var(--md-sys-spacing-inline) var(--md-sys-spacing-block)',
+    maxWidth: 'min(20rem, calc(100vw - 32px))',
+    padding: '4px 8px',
     'background-color': 'var(--md-sys-color-inverse-surface)',
     color: 'var(--md-sys-color-inverse-on-surface)',
     'border-radius': 'var(--md-sys-shape-tooltip)',
     'box-shadow': 'var(--md-sys-elevation-tooltip)',
-    'font-family': 'var(--md-sys-typescale-font-plain)',
+    'font-family': 'var(--md-sys-typescale-body-small-font)',
     'font-size': 'var(--md-sys-typescale-body-small-size)',
     'line-height': 'var(--md-sys-typescale-body-small-line)',
+    'font-weight': 'var(--md-sys-typescale-body-small-weight)',
+    'letter-spacing': 'var(--md-sys-typescale-body-small-tracking)',
     'pointer-events': 'none',
     'white-space': 'pre-wrap',
     'overflow-wrap': 'anywhere',
@@ -94,17 +259,69 @@ function showErrorTooltip(message: string, anchor: HTMLElement): void {
   }
   document.body.appendChild(tip);
 
-  const rect = anchor.getBoundingClientRect();
-  const tipRect = tip.getBoundingClientRect();
-  const left = Math.min(
-    Math.max(8, rect.left),
-    Math.max(8, window.innerWidth - tipRect.width - 8),
-  );
+  const { left, top } = computeErrorTooltipPosition(tip, anchor);
   tip.style.left = `${left}px`;
-  tip.style.top = `${rect.bottom + 4}px`;
+  tip.style.top = `${top}px`;
 
   errorTooltipEl = tip;
-  errorTooltipTimer = setTimeout(dismissErrorTooltip, 2600);
+
+  // Subtle fade-in (skipped when the user prefers reduced motion).
+  if (!reduceMotion && typeof tip.animate === 'function') {
+    errorTooltipAnimation = tip.animate(
+      [{ opacity: 0 }, { opacity: 1 }],
+      { duration: 120, easing: 'ease-out' },
+    );
+  }
+
+  bindErrorTooltipLifecycle(anchor);
+  resetErrorTooltipTimer();
+}
+
+/**
+ * Reuse the existing tooltip for a different "Err" marker: update the
+ * text in place and animate `left`/`top` from the current position to
+ * the newly computed one (skipped under reduced motion — the tooltip
+ * simply jumps). Lifecycle is re-bound to the new anchor and the
+ * auto-dismiss timer is reset.
+ */
+function moveErrorTooltip(
+  message: string,
+  anchor: HTMLElement,
+  reduceMotion: boolean,
+): void {
+  const tip = errorTooltipEl as HTMLDivElement;
+
+  // Stop any in-flight animation so the move starts from a stable spot.
+  errorTooltipAnimation?.cancel();
+  errorTooltipAnimation = null;
+
+  const fromRect = tip.getBoundingClientRect();
+  const fromLeft = fromRect.left;
+  const fromTop = fromRect.top;
+
+  tip.textContent = message;
+  const { left, top } = computeErrorTooltipPosition(tip, anchor);
+
+  // Commit the destination as the base style (it sticks once the
+  // animation ends), then animate the move from the old position.
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+
+  if (!reduceMotion && typeof tip.animate === 'function') {
+    errorTooltipAnimation = tip.animate(
+      [
+        { left: `${fromLeft}px`, top: `${fromTop}px` },
+        { left: `${left}px`, top: `${top}px` },
+      ],
+      {
+        duration: motionDurationMs(tip, '--md-sys-motion-duration-medium'),
+        easing: motionEasing(tip),
+      },
+    );
+  }
+
+  bindErrorTooltipLifecycle(anchor);
+  resetErrorTooltipTimer();
 }
 
 /** Shape stored in editor state. */
@@ -159,22 +376,34 @@ class ResultMarker extends GutterMarker {
     }
 
     if (this.kind === 'error') {
-      // The full message is only shown on hover (title) / tap (tooltip);
-      // inline we render a compact info icon + "Err" label.
-      if (this.message) {
-        el.title = this.message;
-        el.addEventListener('pointerup', (event) => {
-          if (event.pointerType === 'touch' && this.message) {
-            showErrorTooltip(this.message, el);
-          }
-        });
-      }
+      // A compact info icon + "Err" label. Interaction is handled via
+      // the gutter's `domEventHandlers` (event delegation) so the
+      // tooltip keeps working even when CodeMirror re-renders marker
+      // DOM; inline we only render the static affordance.
       el.appendChild(createInfoIcon());
       const label = document.createElement('span');
       label.className = 'numera-error-label';
       label.textContent = this.text;
       el.appendChild(label);
       return el;
+    }
+
+    if (this.kind === 'value') {
+      el.title = 'Click to copy';
+      el.setAttribute('aria-label', 'Click to copy');
+      el.addEventListener('click', () => {
+        void copyText(this.text).then((copied) => {
+          if (copied) {
+            el.dispatchEvent(
+              new CustomEvent('result-copied', {
+                detail: { value: this.text },
+                bubbles: true,
+                composed: true,
+              }),
+            );
+          }
+        });
+      });
     }
 
     el.textContent = this.text;
@@ -225,6 +454,26 @@ export function resultGutter(expressionPrefixUtf16Len: (line: string) => number)
     },
     lineMarkerChange: outcomesChanged,
     initialSpacer: () => new ResultMarker('0'.repeat(10), 'value'),
+    // Delegate the error affordance's press to the gutter itself (not
+    // per-marker DOM) so it survives marker re-renders. CodeMirror's
+    // content-selection handlers don't apply to this gutter, but a
+    // delegated `mousedown` still gives us the most reliable, re-entrant
+    // trigger for both mouse and touch.
+    domEventHandlers: {
+      mousedown(view, line, event) {
+        const target = event.target;
+        if (!(target instanceof Element)) return false;
+        const anchor = target.closest('.numera-result-error');
+        if (!(anchor instanceof HTMLElement)) return false;
+        const lineNo = view.state.doc.lineAt(line.from).number;
+        const outcome = view.state.field(outcomesField).outcomes[lineNo - 1];
+        if (outcome?.isError && outcome.error) {
+          showErrorTooltip(outcome.error, anchor);
+          return true;
+        }
+        return false;
+      },
+    },
   });
 }
 

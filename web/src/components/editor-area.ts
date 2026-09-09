@@ -1,11 +1,12 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { numeraLanguage } from '../lib/numera-lang';
 import { numeraSyntax, numeraTheme } from '../lib/editor-theme';
 import { outcomeDecorations, setOutcomes } from '../lib/editor-decorations';
+import { getSettings, subscribeSettings, type NumeraSettings } from '../lib/settings';
 import type { WorkspaceStore, WorkspaceFile } from '../lib/workspace';
 
 @customElement('numera-editor')
@@ -73,8 +74,23 @@ export class NumeraEditor extends LitElement {
   private currentOutcomes: readonly import('../lib/engine').LineOutcome[] = [];
   private currentIdentity: string | null = null;
 
+  /** Compartment holding the line-numbers extension so it can be
+   *  toggled live without rebuilding the editor state. */
+  private lineNumbersCompartment = new Compartment();
+
+  private settingsUnsub: (() => void) | null = null;
+
+  @state() private settings: NumeraSettings = getSettings();
+
   connectedCallback(): void {
     super.connectedCallback();
+    // Subscribe to settings first so `this.settings` is current before
+    // any view is built, then apply the initial editor settings.
+    this.settingsUnsub = subscribeSettings((s) => {
+      this.settings = s;
+      this.applyEditorSettings();
+    });
+    this.applyEditorSettings();
     if (this.store) {
       this.subscribe(this.store);
     }
@@ -82,6 +98,8 @@ export class NumeraEditor extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.settingsUnsub?.();
+    this.settingsUnsub = null;
     this.unsubscribe?.();
     this.view?.destroy();
     this.view = null;
@@ -168,7 +186,9 @@ export class NumeraEditor extends LitElement {
     return EditorState.create({
       doc: content,
       extensions: [
-        lineNumbers(),
+        this.lineNumbersCompartment.of(
+          this.settings.calculator.editor.showLineNumbers ? lineNumbers() : [],
+        ),
         highlightActiveLine(),
         highlightActiveLineGutter(),
         history(),
@@ -180,6 +200,20 @@ export class NumeraEditor extends LitElement {
         outcomeDecorations((line) => engine?.expressionPrefixUtf16Len(line) ?? line.length),
       ],
     });
+  }
+
+  /** Reflect the current editor settings: host font-size CSS variable
+   *  and (if the view exists) the line-numbers extension. */
+  private applyEditorSettings(): void {
+    const { fontSize, showLineNumbers } = this.settings.calculator.editor;
+    this.style.setProperty('--numera-editor-font-size', `${fontSize}px`);
+    if (this.view) {
+      this.view.dispatch({
+        effects: this.lineNumbersCompartment.reconfigure(
+          showLineNumbers ? lineNumbers() : [],
+        ),
+      });
+    }
   }
 
   private dispatch = (tr: import('@codemirror/state').Transaction): void => {

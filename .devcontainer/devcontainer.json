@@ -3,7 +3,7 @@
 
   "image": "mcr.microsoft.com/devcontainers/rust:dev-bookworm",
 
-  // Features to add to the dev container. Node.js for the Vite/web frontend and Cloudflare worker,
+  // Features to add to the dev container. Node.js for the Vite/web frontend,
   // and Kotlin SDKMAN for tooling parity.
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
@@ -18,10 +18,10 @@
   // '--no-fail-flag' style: each step is independent so a failure in one does not block the rest.
   "postCreateCommand": "curl -fsSL https://opencode.ai/install | bash || true",
 
-  // Ports to forward by default. These match Vite (5173/4173), wrangler dev (8787),
+  // Ports to forward by default. These match Vite (5173/4173)
   // and a dedicated Node inspector port (9229) for debugging the frontend.
   // Additional ports (e.g. 8080, 3000) can still be exposed ad-hoc through the Ports panel.
-  "forwardPorts": [5173, 4173, 8787, 9229],
+  "forwardPorts": [5173, 4173, 9229],
 
   // Port labels & behavior in the VS Code Ports UI. Auto-forward makes them appear immediately
   // when something starts listening. 'notifyOnOpen' surfaces a toast when the URL is ready.
@@ -33,11 +33,6 @@
     },
     "4173": {
       "label": "Vite Preview (web)",
-      "onAutoForward": "notify",
-      "protocol": "http"
-    },
-    "8787": {
-      "label": "Wrangler Dev (worker)",
       "onAutoForward": "notify",
       "protocol": "http"
     },

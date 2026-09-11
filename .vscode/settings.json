@@ -27,8 +27,7 @@
   "rust-analyzer.files.exclude": [
     "**/target/**",
     "**/node_modules/**",
-    "**/web/dist/**",
-    "**/worker/node_modules/**"
+    "**/web/dist/**"
   ],
   // rust-analyzer's own file watcher — VS Code's files.watcherExclude is NOT enough.
   "rust-analyzer.files.watcherExclude": {
@@ -36,7 +35,6 @@
     "**/node_modules/**": true,
     "**/.git/**": true,
     "**/web/dist/**": true,
-    "**/worker/node_modules/**": true,
     "**/*.rs.bk": true
   },
   "files.watcherExclude": {

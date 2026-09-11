@@ -4,8 +4,7 @@
   "private": true,
   "description": "Numera monorepo - natural-language text cross-platform calculator",
   "workspaces": [
-    "web",
-    "worker"
+    "web"
   ],
   "engines": {
     "node": ">=20.0.0",
@@ -13,13 +12,11 @@
   },
   "scripts": {
     "dev": "npm run build:wasm && npm run sync:wasm && npm run dev --workspace=web",
-    "dev:worker": "npm run dev --workspace=worker",
     "build:wasm": "cargo build -p numera-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/numera_wasm.wasm --out-dir crates/wasm/pkg --target web --out-name numera_wasm",
     "build:wasm:release": "cargo build -p numera-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/numera_wasm.wasm --out-dir crates/wasm/pkg --target web --out-name numera_wasm",
     "sync:wasm": "node scripts/sync-wasm.mjs",
     "build": "npm run build:wasm:release && npm run sync:wasm && npm run build --workspaces --if-present",
     "build:web": "npm run build:wasm:release && npm run sync:wasm && npm run build --workspace=web",
-    "build:worker": "npm run build --workspace=worker --if-present",
     "preview": "npm run preview --workspace=web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -30,7 +27,6 @@
   },
   "allowScripts": {
     "esbuild": true,
-    "sharp@0.33.5": true,
-    "workerd": true
+    "sharp@0.33.5": true
   }
 }

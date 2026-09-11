@@ -134,11 +134,31 @@ impl DateTimeEvaluator {
         } else if duration_str.contains("week") {
             date + chrono::Duration::weeks(duration_num)
         } else if duration_str.contains("month") {
-            // Approximate month as 30 days
-            date + chrono::Duration::days(duration_num * 30)
+            let result = if duration_num < 0 {
+                date.checked_sub_months(chrono::Months::new(duration_num.unsigned_abs() as u32))
+            } else {
+                date.checked_add_months(chrono::Months::new(duration_num as u32))
+            };
+            result.ok_or_else(|| {
+                EngineError::DateTimeError("Date arithmetic out of range".to_string())
+            })?
         } else if duration_str.contains("year") {
-            // Approximate year as 365 days
-            date + chrono::Duration::days(duration_num * 365)
+            // Year arithmetic is month arithmetic: 1 year = 12 months.
+            // `checked_add_months` / `checked_sub_months` clamp dates that do
+            // not exist in the target month to the end of that month
+            // (e.g. 2024-02-29 + 1 year -> 2025-02-28), matching .NET
+            // `DateTime.AddYears` and `java.time.Period.ofYears`. Neither
+            // chrono 0.4 nor the unreleased chrono 0.5 has a `Years` type.
+            let result = if duration_num < 0 {
+                i64::try_from(duration_num.unsigned_abs())
+                    .ok()
+                    .and_then(|years| Self::sub_years(date, years))
+            } else {
+                Self::add_years(date, duration_num)
+            };
+            result.ok_or_else(|| {
+                EngineError::DateTimeError("Date arithmetic out of range".to_string())
+            })?
         } else {
             return Err(EngineError::DateTimeError("Unknown duration unit".to_string()));
         };
@@ -146,6 +166,28 @@ impl DateTimeEvaluator {
         Ok(DateTimeValue::date_only(
             result.format("%Y-%m-%d").to_string(),
         ))
+    }
+
+    /// Add a non-negative number of whole years to `date`.
+    ///
+    /// Implemented as `date + 12 * years` months because neither chrono 0.4
+    /// nor the unreleased chrono 0.5 has a `Years` type. `checked_add_months`
+    /// clamps non-existent target dates to the end of the month
+    /// (2024-02-29 + 1 year -> 2025-02-28), matching .NET `DateTime.AddYears`
+    /// and `java.time.Period.ofYears`. The caller routes the sign, so `years`
+    /// must be non-negative.
+    fn add_years(date: NaiveDate, years: i64) -> Option<NaiveDate> {
+        let months = u32::try_from(years).ok()?.checked_mul(12)?;
+        date.checked_add_months(chrono::Months::new(months))
+    }
+
+    /// Subtract a non-negative number of whole years from `date`.
+    ///
+    /// See [`Self::add_years`] for the month-based semantics. The caller
+    /// routes the sign, so `years` must be non-negative.
+    fn sub_years(date: NaiveDate, years: i64) -> Option<NaiveDate> {
+        let months = u32::try_from(years).ok()?.checked_mul(12)?;
+        date.checked_sub_months(chrono::Months::new(months))
     }
 
     /// Get the number of days between two dates
@@ -156,6 +198,56 @@ impl DateTimeEvaluator {
             .map_err(|e| EngineError::DateTimeError(e.to_string()))?;
 
         Ok((d2 - d1).num_days())
+    }
+
+    /// 解析 `days_between(a, b)` 表达式,返回两个日期之间的天数。
+    /// 非 days_between 表达式返回 None。
+    pub fn days_between_expression(expr: &str) -> Option<Result<i64, EngineError>> {
+        let trimmed = expr.trim();
+        let lower = trimmed.to_lowercase();
+
+        const PREFIX: &str = "days_between(";
+        if !lower.starts_with(PREFIX) {
+            return None;
+        }
+
+        if !trimmed.ends_with(')') {
+            return Some(Err(EngineError::DateTimeError(
+                "Invalid days_between expression: missing closing ')'".to_string(),
+            )));
+        }
+
+        let inner = &trimmed[PREFIX.len()..trimmed.len() - 1];
+        let parts: Vec<&str> = inner.split(',').collect();
+        if parts.len() != 2 {
+            return Some(Err(EngineError::DateTimeError(
+                "days_between expects exactly two arguments".to_string(),
+            )));
+        }
+
+        let d1 = match Self::parse_date_token(parts[0]) {
+            Ok(d) => d,
+            Err(e) => return Some(Err(e)),
+        };
+        let d2 = match Self::parse_date_token(parts[1]) {
+            Ok(d) => d,
+            Err(e) => return Some(Err(e)),
+        };
+
+        Some(Ok((d2 - d1).num_days()))
+    }
+
+    /// Parse a single date argument: an ISO `YYYY-MM-DD` literal or one of the
+    /// relative words `today` / `yesterday` / `tomorrow` (based on `Local::now()`).
+    fn parse_date_token(token: &str) -> Result<NaiveDate, EngineError> {
+        let t = token.trim().to_lowercase();
+        match t.as_str() {
+            "today" => Ok(Local::now().date_naive()),
+            "yesterday" => Ok((Local::now() - chrono::Duration::days(1)).date_naive()),
+            "tomorrow" => Ok((Local::now() + chrono::Duration::days(1)).date_naive()),
+            _ => NaiveDate::parse_from_str(token.trim(), "%Y-%m-%d")
+                .map_err(|e| EngineError::DateTimeError(e.to_string())),
+        }
     }
 }
 
@@ -186,5 +278,78 @@ mod tests {
         let typed = DateTimeEvaluator::evaluate_typed("2024-01-15 + 30 days").unwrap();
         assert_eq!(typed.display, "2024-02-14");
         assert_eq!(typed.iso, "2024-02-14");
+    }
+
+    #[test]
+    fn test_month_arithmetic_clamps_to_end_of_month() {
+        // Leap year: Jan 31 + 1 month clamps to Feb 29.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2024-01-31 + 1 month").unwrap(),
+            "2024-02-29"
+        );
+        // Non-leap year: Jan 31 + 1 month clamps to Feb 28.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2023-01-31 + 1 month").unwrap(),
+            "2023-02-28"
+        );
+        // Crossing a year boundary.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2024-12-15 + 1 month").unwrap(),
+            "2025-01-15"
+        );
+        // Negative month arithmetic.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2024-03-31 - 1 month").unwrap(),
+            "2024-02-29"
+        );
+    }
+
+    #[test]
+    fn test_year_arithmetic_clamps_leap_day() {
+        // Leap day + 1 year clamps to Feb 28 in a non-leap year.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2024-02-29 + 1 year").unwrap(),
+            "2025-02-28"
+        );
+        // Leap day - 1 year also clamps to Feb 28 in a non-leap year.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2024-02-29 - 1 year").unwrap(),
+            "2023-02-28"
+        );
+    }
+
+    #[test]
+    fn test_year_arithmetic_restores_leap_day() {
+        // 2028 is a leap year, so the Feb 29 is restored.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2024-02-29 + 4 years").unwrap(),
+            "2028-02-29"
+        );
+    }
+
+    #[test]
+    fn test_year_arithmetic_shifts_plain_date() {
+        // Plain dates simply shift by the year with no clamping.
+        assert_eq!(
+            DateTimeEvaluator::evaluate("2024-03-31 + 1 year").unwrap(),
+            "2025-03-31"
+        );
+    }
+
+    #[test]
+    fn test_days_between_expression() {
+        // `EngineError` does not implement `PartialEq`, so map it to its
+        // string form to keep `assert_eq!` usable here.
+        let as_strings = |expr: &str| {
+            DateTimeEvaluator::days_between_expression(expr)
+                .map(|r| r.map_err(|e| e.to_string()))
+        };
+
+        assert_eq!(
+            as_strings("days_between(2024-01-01, 2024-01-15)"),
+            Some(Ok(14))
+        );
+        assert_eq!(as_strings("days_between(today, today)"), Some(Ok(0)));
+        assert_eq!(as_strings("100 + 200"), None);
     }
 }

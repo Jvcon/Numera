@@ -14,6 +14,7 @@ import type { MdFilledTextField } from '@material/web/textfield/filled-text-fiel
 import { isEncryptionConfigured, resetEncryption } from '../lib/encryption';
 import { WebDavClient } from '../lib/webdav';
 import { runSync, type SyncResult } from '../lib/sync';
+import { getCachedRates, RATE_TTL_MS } from '../lib/exchange-rates';
 import './encryption-setup';
 
 const APP_VERSION = '0.1.0';
@@ -486,6 +487,15 @@ export class NumeraSettingsPage extends LitElement {
   @state()
   private syncError: string | null = null;
 
+  @state()
+  private rateStatus: 'idle' | 'loading' | 'ok' | 'error' = 'idle';
+
+  @state()
+  private rateMessage = '';
+
+  @state()
+  private rateFromCache = false;
+
   private unsubscribe: (() => void) | null = null;
 
   connectedCallback(): void {
@@ -651,6 +661,64 @@ export class NumeraSettingsPage extends LitElement {
       this.syncError = err instanceof Error ? err.message : String(err);
       this.syncPhase = 'error';
     }
+  }
+
+  private async handleRefreshRates() {
+    this.rateStatus = 'loading';
+    this.rateMessage = '';
+    this.rateFromCache = false;
+    const result = await this.store.refreshExchangeRates();
+    this.rateFromCache = result.fromCache;
+    this.rateMessage = result.message;
+    this.rateStatus = result.ok ? 'ok' : 'error';
+  }
+
+  private renderRateStatus() {
+    switch (this.rateStatus) {
+      case 'loading':
+        return html`
+          <span class="result">
+            <md-icon>${ICONS.cloud}</md-icon>
+            <span>Fetching latest rates…</span>
+          </span>
+        `;
+      case 'ok':
+        return html`
+          <span class="result result--ok">
+            <md-icon>${ICONS.checkCircle}</md-icon>
+            <span class="result-text">
+              <span>${this.rateMessage}</span>
+              ${this.rateFromCache
+                ? html`<span class="result-hint">
+                    Network unavailable — using the last cached rates.
+                  </span>`
+                : nothing}
+            </span>
+          </span>
+        `;
+      case 'error':
+        return html`
+          <span class="result result--error">
+            <md-icon>${ICONS.warning}</md-icon>
+            <span>${this.rateMessage}</span>
+          </span>
+        `;
+      default:
+        return html`
+          <span class="result">
+            <md-icon>${ICONS.cloud}</md-icon>
+            <span>Using built-in default rates.</span>
+          </span>
+        `;
+    }
+  }
+
+  private renderRateTimestamp() {
+    const cached = getCachedRates();
+    if (!cached) return 'Last refreshed: never';
+    const when = new Date(cached.fetchedAt).toLocaleString();
+    const stale = Date.now() - cached.fetchedAt > RATE_TTL_MS;
+    return `Last refreshed: ${when}${stale ? ' (stale)' : ''}`;
   }
 
   private renderSyncSummary() {
@@ -1100,6 +1168,26 @@ export class NumeraSettingsPage extends LitElement {
               ${this.renderSyncStatus()}
             </div>
           </div>
+        </div>
+
+        <h3 class="group-title">Exchange rates</h3>
+        <div class="card">
+          <div class="note">
+            Rates come from open.er-api.com and are fetched only when you tap
+            Refresh. Currency results otherwise use cached or built-in rates.
+          </div>
+          <div class="test-row">
+            <md-filled-tonal-button
+              ?disabled=${this.rateStatus === 'loading'}
+              @click=${this.handleRefreshRates}
+            >
+              ${this.rateStatus === 'loading' ? 'Refreshing…' : 'Refresh rates'}
+            </md-filled-tonal-button>
+            <div class="sync-status" role="status" aria-live="polite">
+              ${this.renderRateStatus()}
+            </div>
+          </div>
+          <div class="note">${this.renderRateTimestamp()}</div>
         </div>
       </section>
     `;

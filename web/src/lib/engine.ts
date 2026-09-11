@@ -40,6 +40,19 @@ export interface EngineHandle {
   evaluateDocument(document: string): Promise<LineOutcome[]>;
   /** Replace the cached globals content (the `globals.numr` file). */
   setGlobals(content: string): Promise<void>;
+  /**
+   * Replace the engine's cross-file document table. `docs` maps every
+   * alias accepted by `file("alias")` to the referenced document's raw
+   * content; the engine resolves references during evaluation. The whole
+   * table is replaced, so aliases of deleted/renamed files disappear.
+   */
+  setDocuments(docs: Record<string, string>): Promise<void>;
+  /**
+   * Replace the engine's exchange-rate table. `rates` maps currency
+   * codes (e.g. `"EUR"`) to their value relative to USD (USD = 1).
+   * Subsequent evaluations use these rates for currency conversion.
+   */
+  applyRates(rates: Record<string, number>): Promise<void>;
   /** Evaluate a single expression. Globals must already be set. */
   eval(line: string): Promise<string>;
   /**
@@ -74,6 +87,16 @@ export async function initEngine(): Promise<EngineHandle> {
     },
     async setGlobals(content: string): Promise<void> {
       instance.setGlobals(content);
+    },
+    async setDocuments(docs: Record<string, string>): Promise<void> {
+      // The WASM binding accepts a JSON object (HashMap cannot cross the
+      // wasm-bindgen boundary) and replaces the whole document table.
+      instance.setDocuments(JSON.stringify(docs));
+    },
+    async applyRates(rates: Record<string, number>): Promise<void> {
+      // The WASM binding returns the number of rates applied; the JS
+      // surface intentionally ignores it and just signals completion.
+      instance.applyRates(JSON.stringify(rates));
     },
     async eval(line: string): Promise<string> {
       return instance.eval(line);

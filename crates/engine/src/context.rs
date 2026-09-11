@@ -78,6 +78,16 @@ impl EngineContext {
         self.documents.remove(name);
     }
 
+    /// Replace the entire loaded-document table in one shot.
+    ///
+    /// Unlike repeated [`Self::load_document`] calls this drops any
+    /// documents that are not present in `docs`, which is what the web
+    /// layer needs when it re-publishes the whole workspace (files may
+    /// have been deleted or renamed). Each entry is `(alias, content)`.
+    pub fn set_documents(&mut self, docs: Vec<(String, String)>) {
+        self.documents = docs.into_iter().collect();
+    }
+
     /// Set global variables (from globals.numr)
     pub fn set_globals(&mut self, globals: HashMap<String, String>) {
         self.globals = globals;

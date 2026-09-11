@@ -7,8 +7,10 @@
 //! to render.
 
 use numera_crypto::{Encryptor, FileKey, MasterKey, SpaceKey};
+use numera_engine::eval::Decimal;
 use numera_engine::{Engine as CoreEngine, LineOutcome};
 use numera_sync::WebDavClient as RustWebDavClient;
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 /// Initialize the WASM module. Wired up by `#[wasm_bindgen(start)]`.
@@ -42,6 +44,23 @@ impl WasmEngine {
         self.engine.set_globals(content);
     }
 
+    /// Replace the cross-file document table used to resolve
+    /// `file("alias")` / `file("alias").member` references. `docs_json`
+    /// is a JSON object mapping each alias to the referenced document's
+    /// content, e.g. `{"daily": "total = 12 + 5"}`.
+    ///
+    /// The whole table is replaced on every call, so deleting or
+    /// renaming a file is reflected by simply omitting its old aliases.
+    /// `HashMap` cannot cross the wasm-bindgen boundary, so the mapping
+    /// is exchanged as a JSON string (matching [`apply_rates`]).
+    #[wasm_bindgen(js_name = setDocuments)]
+    pub fn set_documents(&mut self, docs_json: &str) -> Result<(), JsError> {
+        let docs = serde_json::from_str::<HashMap<String, String>>(docs_json)
+            .map_err(|e| JsError::new(&format!("invalid documents JSON: {e}")))?;
+        self.engine.set_documents(docs.into_iter().collect());
+        Ok(())
+    }
+
     /// Evaluate every line of `document` and return one
     /// `{display, error, isEmpty, isError}` entry per input line, in
     /// order. Globals are pre-injected.
@@ -58,6 +77,22 @@ impl WasmEngine {
     pub fn eval(&mut self, line: &str) -> Result<String, JsError> {
         self.engine
             .eval(line)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Apply exchange rates from a JSON object keyed by currency code:
+    /// `{"EUR": 0.92, "BTC": 95000, ...}`. Fiat codes are read as
+    /// "1 USD = X <code>" and crypto codes as "1 <code> = X USD".
+    /// Returns the number of rates accepted.
+    ///
+    /// `HashMap` cannot cross the wasm-bindgen boundary, so rates are
+    /// exchanged as a JSON string.
+    #[wasm_bindgen(js_name = applyRates)]
+    pub fn apply_rates(&mut self, rates_json: &str) -> Result<usize, JsError> {
+        let rates = serde_json::from_str::<HashMap<String, Decimal>>(rates_json)
+            .map_err(|e| JsError::new(&format!("invalid rates JSON: {e}")))?;
+        self.engine
+            .apply_rates(rates)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 

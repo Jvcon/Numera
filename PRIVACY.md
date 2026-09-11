@@ -16,6 +16,8 @@ stored locally on your device:
 - **Workspaces and files** are saved in your browser's IndexedDB storage.
 - **Settings and theme preferences** are saved in your browser's
   `localStorage`.
+- **Cached exchange rates** (only if you refresh them) are saved in your
+  browser's `localStorage`.
 
 None of this data leaves your device, and no one at Numera can access it.
 
@@ -25,6 +27,20 @@ Numera loads the Roboto and JetBrains Mono fonts from Google Fonts. When the
 fonts load, your browser sends a standard request to Google's servers, which
 may include your IP address and browser information. See Google's privacy
 policy at https://policies.google.com/privacy.
+
+### Exchange rates
+
+Numera can convert between currencies using live exchange rates. This is
+strictly opt-in: Numera only contacts `open.er-api.com` when you explicitly
+tap **Refresh rates** in Settings. That request asks for the public
+USD-based rate table and sends no workspace contents, calculations, files, or
+any other user data. Numera does not fetch rates automatically and does not
+contact this service on startup.
+
+The last successfully fetched rates are cached locally in your browser's
+`localStorage`. If a refresh fails (for example, you are offline), Numera
+falls back to that cache, or to the built-in default rates if no cache
+exists, so currency conversions keep working without a network connection.
 
 ## The calculation engine
 

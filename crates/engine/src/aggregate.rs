@@ -1,29 +1,24 @@
 use std::collections::HashMap;
 use crate::error::EngineError;
 
-/// Aggregation function types
+/// Aggregation function types retained in the Numera layer.
+///
+/// numr-core now implements `sum`/`total`/`avg`/`average`/`min`/`max`/
+/// `median` natively and resolves variable/expression arguments while
+/// evaluating them, so those calls are routed straight to the core
+/// evaluator from [`crate::eval::Engine::eval_typed`]. Only
+/// `count`/`len`/`length` remain here because numr-core has no
+/// equivalent for them.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AggregationType {
-    Sum,
-    Average,
-    Min,
-    Max,
-    Median,
     Count,
-    Total,
 }
 
 impl AggregationType {
     /// Parse aggregation type from string
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "sum" => Some(Self::Sum),
-            "avg" | "average" | "mean" => Some(Self::Average),
-            "min" | "minimum" => Some(Self::Min),
-            "max" | "maximum" => Some(Self::Max),
-            "median" => Some(Self::Median),
             "count" | "len" | "length" => Some(Self::Count),
-            "total" => Some(Self::Total),
             _ => None,
         }
     }
@@ -31,13 +26,7 @@ impl AggregationType {
     /// Get the function name
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Sum => "sum",
-            Self::Average => "avg",
-            Self::Min => "min",
-            Self::Max => "max",
-            Self::Median => "median",
             Self::Count => "count",
-            Self::Total => "total",
         }
     }
 }
@@ -46,18 +35,15 @@ impl AggregationType {
 pub struct AggregationEvaluator;
 
 impl AggregationEvaluator {
-    /// Check if an expression is an aggregation function
+    /// Check if an expression is an aggregation function handled by the
+    /// Numera layer. Only `count`/`len`/`length` are intercepted now;
+    /// `sum`/`total`/`avg`/`average`/`min`/`max`/`median` are left to
+    /// numr-core so that variable and cross-file arguments work.
     pub fn is_aggregation(expr: &str) -> bool {
         let lower = expr.trim().to_lowercase();
-        lower.starts_with("sum(") ||
-        lower.starts_with("avg(") ||
-        lower.starts_with("average(") ||
-        lower.starts_with("mean(") ||
-        lower.starts_with("min(") ||
-        lower.starts_with("max(") ||
-        lower.starts_with("median(") ||
         lower.starts_with("count(") ||
-        lower.starts_with("total(")
+        lower.starts_with("len(") ||
+        lower.starts_with("length(")
     }
 
     /// Parse and evaluate an aggregation expression
@@ -78,32 +64,7 @@ impl AggregationEvaluator {
         }
 
         let result = match agg_type {
-            AggregationType::Sum | AggregationType::Total => {
-                values.iter().sum::<f64>()
-            }
-            AggregationType::Average => {
-                let sum: f64 = values.iter().sum();
-                sum / values.len() as f64
-            }
-            AggregationType::Min => {
-                values.iter().cloned().fold(f64::INFINITY, f64::min)
-            }
-            AggregationType::Max => {
-                values.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
-            }
-            AggregationType::Median => {
-                let mut sorted = values.clone();
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                let mid = sorted.len() / 2;
-                if sorted.len() % 2 == 0 {
-                    (sorted[mid - 1] + sorted[mid]) / 2.0
-                } else {
-                    sorted[mid]
-                }
-            }
-            AggregationType::Count => {
-                values.len() as f64
-            }
+            AggregationType::Count => values.len() as f64,
         };
 
         Ok(result)
@@ -221,26 +182,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sum() {
-        let result = AggregationEvaluator::evaluate("sum(1, 2, 3, 4, 5)").unwrap();
-        assert_eq!(result, 15.0);
+    fn test_count_family() {
+        assert_eq!(AggregationEvaluator::evaluate("count(1, 2, 3)").unwrap(), 3.0);
+        assert_eq!(AggregationEvaluator::evaluate("len(1, 2)").unwrap(), 2.0);
+        assert_eq!(AggregationEvaluator::evaluate("length(4)").unwrap(), 1.0);
     }
 
     #[test]
-    fn test_average() {
-        let result = AggregationEvaluator::evaluate("avg(10, 20, 30)").unwrap();
-        assert_eq!(result, 20.0);
-    }
-
-    #[test]
-    fn test_median() {
-        let result = AggregationEvaluator::evaluate("median(3, 1, 2)").unwrap();
-        assert_eq!(result, 2.0);
-    }
-
-    #[test]
-    fn test_count() {
-        let result = AggregationEvaluator::evaluate("count(1, 2, 3)").unwrap();
-        assert_eq!(result, 3.0);
+    fn test_only_count_family_is_intercepted() {
+        assert!(AggregationEvaluator::is_aggregation("count(1, 2)"));
+        assert!(AggregationEvaluator::is_aggregation("len(1, 2)"));
+        assert!(AggregationEvaluator::is_aggregation("length(1, 2)"));
+        // These are delegated to numr-core, which resolves variables.
+        assert!(!AggregationEvaluator::is_aggregation("sum(1, 2)"));
+        assert!(!AggregationEvaluator::is_aggregation("total(1, 2)"));
+        assert!(!AggregationEvaluator::is_aggregation("avg(1, 2)"));
+        assert!(!AggregationEvaluator::is_aggregation("average(1, 2)"));
+        assert!(!AggregationEvaluator::is_aggregation("min(1, 2)"));
+        assert!(!AggregationEvaluator::is_aggregation("max(1, 2)"));
+        assert!(!AggregationEvaluator::is_aggregation("median(1, 2)"));
     }
 }

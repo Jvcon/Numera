@@ -1,129 +1,80 @@
 /**
- * Smoke test for the file-ref resolver. Run with:
- *   node --import tsx --test web/src/lib/file-ref.test.ts
- * or just inline-import from a probe harness. Standalone here so
- * we don't need vitest wired up yet.
+ * Tests for cross-file alias generation. Run with:
+ *   node --import tsx --test src/lib/file-ref.test.ts
+ *
+ * The resolution semantics themselves live in the Rust engine and are
+ * covered by `crates/engine/src/reference.rs` tests; here we only verify
+ * that the web layer produces the alias set the engine is registered
+ * with (including first-wins deduplication).
  */
 
-import { resolveFileReferences } from './file-ref';
+import { collectFileAliases, buildFileIndex } from './file-ref';
 import type { WorkspaceFile } from './workspace';
 
-const cases: { name: string; expr: string; expected: string; files: WorkspaceFile[] }[] = [
-  {
-    name: 'simple file() by path',
-    expr: 'x = file("daily")',
-    expected: 'x = expense_breakfast + expense_lunch + expense_coffee',
-    files: [
-      {
-        id: 'daily',
-        path: 'daily.numr',
-        displayName: 'Daily',
-        pinned: false,
-        folderId: null,
-        order: 0,
-        content: 'total = expense_breakfast + expense_lunch + expense_coffee',
-      },
-    ],
-  },
-  {
-    name: '.numr suffix is optional',
-    expr: 'x = file("daily.numr")',
-    expected: 'x = 42',
-    files: [
-      {
-        id: 'd',
-        path: 'daily.numr',
-        displayName: 'd',
-        pinned: false,
-        folderId: null,
-        order: 0,
-        content: 'result = 42',
-      },
-    ],
-  },
-  {
-    name: 'subdirectory path',
-    expr: 'x = file("daily/2026-09-07")',
-    expected: 'x = 99',
-    files: [
-      {
-        id: 'd',
-        path: 'daily/2026-09-07.numr',
-        displayName: 'd',
-        pinned: false,
-        folderId: null,
-        order: 0,
-        content: 'first = 99',
-      },
-    ],
-  },
-  {
-    name: 'first export wins',
-    expr: 'x = file("multi")',
-    expected: 'x = 100',
-    files: [
-      {
-        id: 'm',
-        path: 'multi.numr',
-        displayName: 'm',
-        pinned: false,
-        folderId: null,
-        order: 0,
-        content: '# comment\nfirst = 100\nsecond = 200',
-      },
-    ],
-  },
-  {
-    name: 'unknown file is left as-is',
-    expr: 'x = file("ghost")',
-    expected: 'x = file("ghost")',
-    files: [
-      {
-        id: 'kg',
-        path: 'known.numr',
-        displayName: 'Known',
-        pinned: false,
-        folderId: null,
-        order: 0,
-        content: 'first = 1',
-      },
-    ],
-  },
-  {
-    name: 'single-quote style also works',
-    expr: "x = file('daily')",
-    expected: 'x = 7',
-    files: [
-      {
-        id: 'd',
-        path: 'daily.numr',
-        displayName: 'd',
-        pinned: false,
-        folderId: null,
-        order: 0,
-        content: 'first = 7',
-      },
-    ],
-  },
-];
+function makeFile(overrides: Partial<WorkspaceFile> & { path: string }): WorkspaceFile {
+  return {
+    id: overrides.path,
+    displayName: overrides.path.replace(/\.numr$/, ''),
+    pinned: false,
+    folderId: null,
+    order: 0,
+    content: '',
+    ...overrides,
+  };
+}
 
 let failed = 0;
-for (const c of cases) {
-  const actual = resolveFileReferences(c.expr, c.files);
-  const ok = actual === c.expected;
-  if (!ok) {
+
+function check(name: string, actual: unknown, expected: unknown): void {
+  const a = JSON.stringify(actual);
+  const e = JSON.stringify(expected);
+  if (a !== e) {
     failed += 1;
-    console.log(`✗ ${c.name}`);
-    console.log(`    expected: ${c.expected}`);
-    console.log(`    actual:   ${actual}`);
+    console.log(`✗ ${name}`);
+    console.log(`    expected: ${e}`);
+    console.log(`    actual:   ${a}`);
   } else {
-    console.log(`✓ ${c.name}`);
+    console.log(`✓ ${name}`);
   }
 }
 
+check(
+  'path with .numr exposes path, basename and display name',
+  collectFileAliases(makeFile({ path: 'daily.numr', displayName: 'Daily' })),
+  ['daily.numr', 'daily.numr', 'daily', 'daily.numr', 'daily', 'Daily'],
+);
+
+check(
+  'subdirectory path exposes full path and basename',
+  collectFileAliases(makeFile({ path: 'daily/2026-09-07.numr', displayName: 'Daily — Sep 7' })),
+  [
+    'daily/2026-09-07.numr',
+    'daily/2026-09-07.numr',
+    'daily/2026-09-07',
+    '2026-09-07.numr',
+    '2026-09-07',
+    'Daily — Sep 7',
+  ],
+);
+
+check(
+  'path without extension gets a .numr alias appended',
+  collectFileAliases(makeFile({ path: 'notes', displayName: 'Notes' })),
+  ['notes', 'notes.numr', 'notes', 'notes', 'Notes'],
+);
+
+// First-wins deduplication: two files sharing the basename "shared.numr";
+// the earlier file in the workspace array must own the alias.
+const first = makeFile({ id: 'first', path: 'a/shared.numr', content: 'x = 1' });
+const second = makeFile({ id: 'second', path: 'b/shared.numr', content: 'x = 2' });
+const index = buildFileIndex([first, second]);
+check('first file wins a shared basename alias', index.get('shared.numr')?.id, 'first');
+check('first file wins a shared basename alias (no ext)', index.get('shared')?.id, 'first');
+check('later file still owns its unique full path', index.get('b/shared.numr')?.id, 'second');
+
 if (failed > 0) {
-  console.log(`\n${failed}/${cases.length} cases failed`);
+  console.log(`\n${failed} case(s) failed`);
   process.exit(1);
 } else {
-  console.log(`\n${cases.length}/${cases.length} cases passed`);
+  console.log('\nall cases passed');
 }

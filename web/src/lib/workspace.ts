@@ -10,12 +10,14 @@
  * construction; if no snapshot exists, the default fixtures are used
  * and written out on first mutation.
  *
- * Cross-file references: `lib/file-ref` resolves `file("name")` in
- * the active document using the rest of the workspace, before the
- * document reaches the WASM engine. The engine's own reference
- * resolver is left in place as a fallback for cases we don't handle.
- * The `path` field keeps encoding the folder ("folderName/file.numr"),
- * so basename/path resolution keeps working for files inside folders.
+ * Cross-file references: the Rust engine is the single source of truth
+ * for `file("name")` / `file("name").member` semantics. Before each
+ * evaluation the store publishes every workspace file to the engine as
+ * an `alias -> content` table (see `lib/file-ref`, which only computes
+ * the aliases), and the engine resolves references while evaluating the
+ * raw document. The `path` field keeps encoding the folder
+ * ("folderName/file.numr"), so basename/path resolution keeps working
+ * for files inside folders.
  *
  * Ordering model: one level of folders plus explicit ordering.
  * The root level holds both folders and root-level files
@@ -28,7 +30,7 @@
  */
 
 import { type LineOutcome, type EngineHandle } from './engine';
-import { resolveFileReferences } from './file-ref';
+import { collectFileAliases } from './file-ref';
 import {
   loadWorkspace,
   saveWorkspace,
@@ -37,6 +39,11 @@ import {
 } from './persistence';
 import { formatOutcome } from './format';
 import { loadSettings, type NumeraSettings } from './settings';
+import {
+  fetchExchangeRates,
+  getCachedRates,
+  saveCachedRates,
+} from './exchange-rates';
 
 export interface WorkspaceFolder {
   /** Stable id (crypto.randomUUID()). */
@@ -416,6 +423,84 @@ export class WorkspaceStore {
     this.update({ outcomes: this.formatOutcomes(this.rawOutcomes) });
   }
 
+  /**
+   * Fetch live exchange rates and push them into the engine, falling
+   * back to the last cached table when the network is unavailable.
+   * After a successful apply the active file is re-evaluated so
+   * currency conversions reflect the new rates.
+   *
+   * Returns a small result object for the settings UI:
+   *   - `ok`        — rates were applied to the engine
+   *   - `fromCache` — network failed and cached rates were used
+   *   - `message`   — human-readable outcome / error
+   */
+  async refreshExchangeRates(): Promise<{
+    ok: boolean;
+    fromCache: boolean;
+    message: string;
+  }> {
+    let rates: Record<string, number> | null = null;
+    let fromCache = false;
+    let networkError: string | null = null;
+
+    // (1) Prefer a fresh network fetch.
+    try {
+      rates = await fetchExchangeRates();
+    } catch (err) {
+      networkError = err instanceof Error ? err.message : String(err);
+    }
+
+    // (2) Fall back to the cache, even if it is stale.
+    if (rates === null) {
+      const cached = getCachedRates();
+      if (cached) {
+        rates = cached.rates;
+        fromCache = true;
+      }
+    }
+
+    if (rates === null) {
+      return {
+        ok: false,
+        fromCache: false,
+        message: networkError ?? 'Could not load exchange rates',
+      };
+    }
+
+    // (3) Push the rates into the engine.
+    if (!this.engine) {
+      return {
+        ok: false,
+        fromCache,
+        message: 'Calculation engine is not ready',
+      };
+    }
+    try {
+      await this.engine.applyRates(rates);
+    } catch (err) {
+      return {
+        ok: false,
+        fromCache,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+
+    // Only a fresh fetch refreshes the cache timestamp; re-saving cached
+    // rates would incorrectly mark stale data as just-fetched.
+    if (!fromCache) saveCachedRates(rates);
+
+    // (4) Currency results change with the rates, so re-evaluate.
+    await this.evaluateActiveFile();
+
+    return {
+      ok: true,
+      fromCache,
+      message: fromCache
+        ? 'Applied cached exchange rates'
+        : 'Exchange rates updated',
+    };
+  }
+
   async evaluateActiveFile(): Promise<void> {
     if (this.state.editingTarget === 'globals') {
       // Evaluating the globals document itself: no cross-file references
@@ -445,12 +530,12 @@ export class WorkspaceStore {
     }
     try {
       await this.engine.setGlobals(this.state.globalsContent);
-      // Cross-file references resolve against the rest of the
-      // workspace before the document reaches the engine. This keeps
-      // the WASM surface area stable.
-      const rewritten = resolveFileReferences(active.content, this.state.files);
-      const wrapped = wrapFileReferences(rewritten);
-      const outcomes = await this.engine.evaluateDocument(wrapped);
+      // Publish the whole workspace to the engine so it can resolve
+      // `file("...")` references while evaluating the raw document.
+      // Resolution semantics live in the Rust engine; the TS layer only
+      // maps aliases to content.
+      await this.engine.setDocuments(this.buildDocumentAliases());
+      const outcomes = await this.engine.evaluateDocument(active.content);
       this.setRawOutcomes(outcomes, { lastError: null });
     } catch (err) {
       this.setRawOutcomes([], {
@@ -969,6 +1054,29 @@ export class WorkspaceStore {
     return this.state.files.find((f) => f.id === this.state.activeFileId);
   }
 
+  /**
+   * Build the `alias -> content` table published to the engine.
+   *
+   * Aliases are deduplicated FIRST-COME-FIRST-SERVED in `state.files`
+   * order: when two files claim the same alias (e.g. two files in
+   * different folders sharing a basename), the file that appears first
+   * in the workspace array wins. Deduping must happen here — before
+   * serialization — because the engine stores the table in a Rust
+   * `HashMap`, which cannot preserve insertion order; publishing
+   * duplicate keys would otherwise let the last file win.
+   */
+  private buildDocumentAliases(): Record<string, string> {
+    const docs = new Map<string, string>();
+    for (const file of this.state.files) {
+      for (const alias of collectFileAliases(file)) {
+        if (!docs.has(alias)) {
+          docs.set(alias, file.content);
+        }
+      }
+    }
+    return Object.fromEntries(docs);
+  }
+
   /** Re-render raw outcomes with the current settings. Every field is
    *  preserved except `display`, which gets the settings-aware string. */
   private formatOutcomes(raw: readonly LineOutcome[]): LineOutcome[] {
@@ -1051,15 +1159,4 @@ export class WorkspaceStore {
 
 function uniqueId(): string {
   return crypto.randomUUID();
-}
-
-/**
- * Mark file() references in the rewritten document so the editor can
- * show them as resolved references. We don't actually wrap anything;
- * the engine already has its own resolver. This is a hook for future
- * decoration (e.g. underlining resolved references) — for now it's a
- * no-op pass-through kept for the next iteration.
- */
-function wrapFileReferences(expr: string): string {
-  return expr;
 }

@@ -15,6 +15,8 @@ pub mod function_call;
 pub mod global_ref;
 pub mod reference;
 pub mod aggregate;
+pub mod value_ref;
+pub mod zh_units;
 
 // Re-export main types
 pub use context::EngineContext;

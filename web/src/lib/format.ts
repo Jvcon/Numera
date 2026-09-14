@@ -54,6 +54,24 @@ export function regionToLocale(region: Region): string | undefined {
   return region === 'system' ? undefined : region;
 }
 
+/**
+ * Map a `Region` to the ISO-4217 currency code used when rendering
+ * annotated money lines.
+ *
+ * `'system'` has no single currency: it is resolved from the runtime's
+ * default locale, falling back to `'CNY'` when Intl reports none (or
+ * when constructing the formatter throws in a locked-down runtime).
+ */
+export function regionToCurrency(region: Region): string {
+  if (region === 'zh-CN') return 'CNY';
+  if (region === 'en-US') return 'USD';
+  try {
+    return new Intl.NumberFormat().resolvedOptions().currency ?? 'CNY';
+  } catch {
+    return 'CNY';
+  }
+}
+
 function readOutcomeMeta(outcome: LineOutcome): OutcomeMeta {
   const maybeKind = (outcome as unknown as { kind?: unknown }).kind;
   const kind: OutcomeKind | undefined =
@@ -154,12 +172,35 @@ function formatDate(date: Date, region: Region): string {
  * settings. Every branch gracefully falls back to `outcome.display`
  * when `rawValue` is missing, null or unusable.
  */
-export function formatOutcome(outcome: LineOutcome, settings: NumeraSettings): string {
+export function formatOutcome(
+  outcome: LineOutcome,
+  settings: NumeraSettings,
+  isMoney?: boolean,
+): string {
   const { kind, rawValue } = readOutcomeMeta(outcome);
   const display = outcome.display;
   const math = settings?.calculator?.math;
 
   if (kind === 'number') {
+    // Money takes precedence over the plain-number path: an annotated
+    // input/result line is rendered as a currency amount even though the
+    // engine's own display is a bare decimal.
+    if (
+      isMoney === true &&
+      math !== undefined &&
+      typeof rawValue === 'number' &&
+      Number.isFinite(rawValue)
+    ) {
+      try {
+        return new Intl.NumberFormat(regionToLocale(math.region), {
+          style: 'currency',
+          currency: regionToCurrency(math.region),
+          useGrouping: math.showGroupingSeparators,
+        }).format(rawValue);
+      } catch {
+        return display;
+      }
+    }
     if (
       math !== undefined &&
       typeof rawValue === 'number' &&

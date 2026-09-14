@@ -5,8 +5,13 @@ import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { numeraLanguage } from '../lib/numera-lang';
 import { numeraSyntax, numeraTheme } from '../lib/editor-theme';
-import { outcomeDecorations, setOutcomes } from '../lib/editor-decorations';
+import {
+  outcomeDecorations,
+  setAnnotations,
+  setOutcomes,
+} from '../lib/editor-decorations';
 import { getSettings, subscribeSettings, type NumeraSettings } from '../lib/settings';
+import type { Annotations } from '../lib/templates';
 import type { WorkspaceStore, WorkspaceFile } from '../lib/workspace';
 
 @customElement('numera-editor')
@@ -72,7 +77,13 @@ export class NumeraEditor extends LitElement {
   private view: EditorView | null = null;
   private unsubscribe: (() => void) | null = null;
   private currentOutcomes: readonly import('../lib/engine').LineOutcome[] = [];
+  private currentAnnotations: Annotations | null = null;
   private currentIdentity: string | null = null;
+
+  /** File id of the last active file we ran the first-@input focus for,
+   *  and the file id awaiting its freshly-evaluated annotations. */
+  private lastActiveFileId: string | null = null;
+  private pendingFocusFileId: string | null = null;
 
   /** Compartment holding the line-numbers extension so it can be
    *  toggled live without rebuilding the editor state. */
@@ -135,7 +146,11 @@ export class NumeraEditor extends LitElement {
       this.currentIdentity = identity;
       this.currentOutcomes = state.outcomes;
 
-      const view = this.view;
+      const annotations = state.annotations;
+      const annotationsUpdated = this.currentAnnotations !== annotations;
+      this.currentAnnotations = annotations;
+
+      let view = this.view;
       const host = this.renderRoot.querySelector<HTMLDivElement>('.editor-host');
       if (!host) return;
 
@@ -144,31 +159,33 @@ export class NumeraEditor extends LitElement {
       if (!editingGlobals && !activeFile) {
         view?.destroy();
         this.view = null;
+        this.lastActiveFileId = null;
+        this.pendingFocusFileId = null;
         return;
       }
 
       if (!view) {
-        this.view = new EditorView({
+        view = new EditorView({
           state: this.buildState(displayContent),
           parent: host,
           dispatch: this.dispatch,
         });
-        return;
-      }
-
-      // Swap the doc when the display target changed OR the store's
-      // content diverges from what we're showing. The latter happens on
-      // hydrate: the editor mounts on the default fixtures before the
-      // async IndexedDB read resolves, and the file id doesn't change,
-      // so reacting to the identity alone would leave stale content on
-      // screen. During normal typing the editor's doc already matches
-      // the store (setActiveContent runs after view.update), so this
-      // extra check never resets the cursor mid-keystroke.
-      const currentDoc = view.state.doc.toString();
-      if (previousIdentity !== identity || currentDoc !== displayContent) {
-        view.dispatch({
-          changes: { from: 0, to: currentDoc.length, insert: displayContent },
-        });
+        this.view = view;
+      } else {
+        // Swap the doc when the display target changed OR the store's
+        // content diverges from what we're showing. The latter happens on
+        // hydrate: the editor mounts on the default fixtures before the
+        // async IndexedDB read resolves, and the file id doesn't change,
+        // so reacting to the identity alone would leave stale content on
+        // screen. During normal typing the editor's doc already matches
+        // the store (setActiveContent runs after view.update), so this
+        // extra check never resets the cursor mid-keystroke.
+        const currentDoc = view.state.doc.toString();
+        if (previousIdentity !== identity || currentDoc !== displayContent) {
+          view.dispatch({
+            changes: { from: 0, to: currentDoc.length, insert: displayContent },
+          });
+        }
       }
 
       // Push the latest outcomes into editor state so the gutter's
@@ -178,7 +195,56 @@ export class NumeraEditor extends LitElement {
           effects: setOutcomes.of({ outcomes: state.outcomes }),
         });
       }
+
+      // Push the template annotations so the gutter can emphasize
+      // `@result` lines. Only the set of result lines crosses the
+      // boundary; the field stores a fresh set so a re-evaluation of
+      // unchanged annotations still refreshes the gutter.
+      if (annotationsUpdated) {
+        view.dispatch({
+          effects: setAnnotations.of({
+            resultLines: new Set(annotations.results),
+          }),
+        });
+      }
+
+      // Focus the first `@input` once per file switch. The switch is
+      // recorded immediately, but the focus waits for that file's freshly
+      // evaluated annotations (`selectFile`/`createFile` publish the new
+      // id before the async evaluation replaces the previous file's
+      // annotations), so we never jump to a stale line.
+      const focusFileId = editingGlobals ? null : (activeFile?.id ?? null);
+      if (focusFileId !== this.lastActiveFileId) {
+        this.lastActiveFileId = focusFileId;
+        this.pendingFocusFileId = focusFileId;
+      }
+      if (
+        annotationsUpdated &&
+        this.pendingFocusFileId !== null &&
+        this.pendingFocusFileId === focusFileId &&
+        annotations.firstInputLine !== null
+      ) {
+        this.pendingFocusFileId = null;
+        this.focusFirstInput(view, annotations.firstInputLine);
+      }
     });
+  }
+
+  /**
+   * Place the cursor at the value of the first `@input` assignment line
+   * (1-based) and focus the editor. Falls back to the end of the line
+   * when the line doesn't look like a `name = …` assignment.
+   */
+  private focusFirstInput(view: EditorView, lineNumber: number): void {
+    const doc = view.state.doc;
+    if (lineNumber < 1 || lineNumber > doc.lines) return;
+    const line = doc.line(lineNumber);
+    const match = /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*=[ \t]*/.exec(
+      line.text,
+    );
+    const pos = match ? line.from + match[0].length : line.to;
+    view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+    view.focus();
   }
 
   private buildState(content: string): EditorState {

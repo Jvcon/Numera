@@ -35,6 +35,7 @@ const ICONS = {
   theme: html`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>`,
   pin: html`<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 12V4H17V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`,
   search: html`<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`,
+  template: html`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>`,
 };
 
 @customElement('numera-command-palette')
@@ -233,6 +234,12 @@ export class NumeraCommandPalette extends LitElement {
         detail: `Current theme: ${this.theme}`,
         kind: 'command',
       },
+      {
+        id: 'from-template',
+        label: '从模板新建',
+        detail: '从场景模板创建新文件',
+        kind: 'command',
+      },
     ];
   }
 
@@ -357,7 +364,9 @@ export class NumeraCommandPalette extends LitElement {
       item.kind === 'command'
         ? item.id === 'toggle-theme'
           ? ICONS.theme
-          : ICONS.plus
+          : item.id === 'from-template'
+            ? ICONS.template
+            : ICONS.plus
         : item.detail.includes('/')
           ? ICONS.folder
           : ICONS.file;

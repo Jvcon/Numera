@@ -5,6 +5,7 @@ const ICONS = {
   menu: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>`,
   functions: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M18 4H6v2l6.5 6L6 18v2h12v-3h-7l5-5-5-5h7V4z"/></svg>`,
   close: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`,
+  template: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>`,
 };
 
 @customElement('numera-top-bar')
@@ -101,6 +102,15 @@ export class NumeraTopBar extends LitElement {
     );
   }
 
+  private dispatchTemplateOpen() {
+    this.dispatchEvent(
+      new CustomEvent('template-open', {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   render() {
     return html`
       <md-icon-button
@@ -129,6 +139,13 @@ export class NumeraTopBar extends LitElement {
       </div>
 
       <div class="actions">
+        <md-icon-button
+          aria-label="从模板新建"
+          title="从模板新建"
+          @click=${this.dispatchTemplateOpen}
+        >
+          <md-icon>${ICONS.template}</md-icon>
+        </md-icon-button>
         <md-icon-button
           aria-label="Global variables"
           title="Global variables"

@@ -345,11 +345,42 @@ export const outcomesField = StateField.define<DocumentOutcomes>({
   },
 });
 
+/** Shape stored in editor state: which 1-based lines are template results. */
+export interface DocumentAnnotations {
+  resultLines: ReadonlySet<number>;
+}
+
+/** Dispatch to replace the current template annotations in editor state. */
+export const setAnnotations = StateEffect.define<DocumentAnnotations>();
+
+const EMPTY_ANNOTATIONS: DocumentAnnotations = Object.freeze({
+  resultLines: new Set<number>(),
+});
+
+/** Editor-state field holding the latest template annotations. */
+export const annotationsField = StateField.define<DocumentAnnotations>({
+  create: () => EMPTY_ANNOTATIONS,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setAnnotations)) return effect.value;
+    }
+    return value;
+  },
+});
+
 /** True when a transaction changes either the doc or the outcomes state. */
 function outcomesChanged(update: ViewUpdate): boolean {
   return (
     update.docChanged ||
     update.startState.field(outcomesField) !== update.state.field(outcomesField)
+  );
+}
+
+/** True when a transaction changes the template annotations state. */
+function annotationsChanged(update: ViewUpdate): boolean {
+  return (
+    update.startState.field(annotationsField) !==
+    update.state.field(annotationsField)
   );
 }
 
@@ -364,13 +395,16 @@ class ResultMarker extends GutterMarker {
     readonly kind: ResultKind,
     readonly anchor: number | null = null,
     readonly message: string | null = null,
+    readonly emphasized = false,
   ) {
     super();
   }
 
   toDOM(): HTMLElement {
     const el = document.createElement('span');
-    el.className = `numera-result-cell numera-result-${this.kind}`;
+    el.className =
+      `numera-result-cell numera-result-${this.kind}` +
+      (this.emphasized ? ' numera-result-emphasized' : '');
     if (this.kind === 'value' && this.anchor !== null) {
       el.dataset['numeraResultAnchor'] = String(this.anchor);
     }
@@ -416,7 +450,8 @@ class ResultMarker extends GutterMarker {
       other.text === this.text &&
       other.kind === this.kind &&
       other.anchor === this.anchor &&
-      other.message === this.message
+      other.message === this.message &&
+      other.emphasized === this.emphasized
     );
   }
 }
@@ -425,13 +460,16 @@ class ResultMarker extends GutterMarker {
 function outcomeToMarker(
   outcome: LineOutcome | undefined,
   anchor: number | null,
+  emphasized = false,
 ): ResultMarker {
-  if (!outcome) return new ResultMarker('', 'empty');
-  if (outcome.isError) return new ResultMarker('Err', 'error', null, outcome.error);
-  if (outcome.isEmpty || outcome.display.length === 0) {
-    return new ResultMarker('', 'empty');
+  if (!outcome) return new ResultMarker('', 'empty', null, null, emphasized);
+  if (outcome.isError) {
+    return new ResultMarker('Err', 'error', null, outcome.error, emphasized);
   }
-  return new ResultMarker(outcome.display, 'value', anchor);
+  if (outcome.isEmpty || outcome.display.length === 0) {
+    return new ResultMarker('', 'empty', null, null, emphasized);
+  }
+  return new ResultMarker(outcome.display, 'value', anchor, null, emphasized);
 }
 
 /**
@@ -450,9 +488,13 @@ export function resultGutter(expressionPrefixUtf16Len: (line: string) => number)
       const outcomes = view.state.field(outcomesField).outcomes;
       const outcome = outcomes[idx];
       const anchor = line.from + expressionPrefixUtf16Len(docLine.text);
-      return outcomeToMarker(outcome, anchor);
+      const emphasized = view.state
+        .field(annotationsField)
+        .resultLines.has(docLine.number);
+      return outcomeToMarker(outcome, anchor, emphasized);
     },
-    lineMarkerChange: outcomesChanged,
+    lineMarkerChange: (update) =>
+      outcomesChanged(update) || annotationsChanged(update),
     initialSpacer: () => new ResultMarker('0'.repeat(10), 'value'),
     // Delegate the error affordance's press to the gutter itself (not
     // per-marker DOM) so it survives marker re-renders. CodeMirror's
@@ -588,6 +630,7 @@ const resultAlignment = ViewPlugin.fromClass(
 export function outcomeDecorations(expressionPrefixUtf16Len: (line: string) => number) {
   return [
     outcomesField,
+    annotationsField,
     resultGutter(expressionPrefixUtf16Len),
     errorLineDecoration(),
     resultAlignment,

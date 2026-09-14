@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { cycleTheme, type ThemeSetting } from '../lib/theme';
 import { getSettings, subscribeSettings } from '../lib/settings';
 import { WorkspaceStore } from '../lib/workspace';
+import { BUILT_IN_TEMPLATES } from '../lib/templates';
 import { initEngine } from '../lib/engine';
 import { runSync } from '../lib/sync';
 import './top-bar';
@@ -10,6 +11,7 @@ import './sidebar';
 import './editor-area';
 import './status-bar';
 import './command-palette';
+import './template-chooser';
 import './snackbar';
 import './fab';
 import './settings-page';
@@ -173,6 +175,9 @@ export class NumeraAppShell extends LitElement {
 
   @state()
   private paletteOpen = false;
+
+  @state()
+  private templateChooserOpen = false;
 
   @state()
   private editingGlobals = false;
@@ -455,6 +460,30 @@ export class NumeraAppShell extends LitElement {
       this.handleFileCreate();
     } else if (custom.detail.id === 'toggle-theme') {
       this.theme = cycleTheme(this.theme);
+    } else if (custom.detail.id === 'from-template') {
+      this.templateChooserOpen = true;
+    }
+  };
+
+  private handleTemplateOpen = () => {
+    this.templateChooserOpen = true;
+  };
+
+  private handleFabTemplate = () => {
+    this.templateChooserOpen = true;
+  };
+
+  private handleTemplateClose = () => {
+    this.templateChooserOpen = false;
+  };
+
+  private handleTemplateSelect = (event: Event) => {
+    const custom = event as CustomEvent<{ id: string }>;
+    const template = BUILT_IN_TEMPLATES.find((t) => t.id === custom.detail.id);
+    if (template) {
+      this.store.createFromTemplate(template);
+      this.templateChooserOpen = false;
+      this.showSnackbar(`已创建 ${template.name}`);
     }
   };
 
@@ -489,6 +518,7 @@ export class NumeraAppShell extends LitElement {
         @menu-toggle=${this.handleMenuToggle}
         @global-open=${this.handleGlobalOpen}
         @globals-close=${this.handleGlobalsClose}
+        @template-open=${this.handleTemplateOpen}
       ></numera-top-bar>
 
       <numera-sidebar
@@ -527,10 +557,18 @@ export class NumeraAppShell extends LitElement {
         @palette-close=${this.handlePaletteClose}
       ></numera-command-palette>
 
+      <numera-template-chooser
+        .open=${this.templateChooserOpen}
+        .templates=${BUILT_IN_TEMPLATES}
+        @template-select=${this.handleTemplateSelect}
+        @template-close=${this.handleTemplateClose}
+      ></numera-template-chooser>
+
       <numera-fab
         @fab-new-file=${this.handleFileCreate}
         @fab-new-draft=${this.handleFabNewDraft}
         @fab-search=${this.handleFabSearch}
+        @fab-template=${this.handleFabTemplate}
       ></numera-fab>
 
       <numera-snackbar></numera-snackbar>

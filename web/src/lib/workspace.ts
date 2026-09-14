@@ -38,6 +38,12 @@ import {
   type PersistedFolder,
 } from './persistence';
 import { formatOutcome } from './format';
+import type { Template, Annotations } from './templates';
+import {
+  EMPTY_ANNOTATIONS,
+  instantiateTemplate,
+  parseAnnotations,
+} from './templates';
 import { loadSettings, type NumeraSettings } from './settings';
 import {
   fetchExchangeRates,
@@ -87,6 +93,8 @@ export interface WorkspaceState {
   /** What the editor is currently showing: a file, or the globals doc. */
   editingTarget: 'file' | 'globals';
   outcomes: LineOutcome[];
+  /** `# @money` / `# @input` / `# @result` metadata for the active file. */
+  annotations: Annotations;
   mode: 'Normal' | 'Insert' | 'Standard';
   lastError: string | null;
   /** True until the first hydrate-from-IndexedDB completes. */
@@ -342,6 +350,7 @@ export class WorkspaceStore {
       globalsContent: DEFAULT_GLOBALS,
       editingTarget: 'file',
       outcomes: [],
+      annotations: EMPTY_ANNOTATIONS,
       mode: 'Standard',
       lastError: null,
       hydrating: true,
@@ -420,7 +429,9 @@ export class WorkspaceStore {
    *  settings store changes. */
   setSettings(settings: NumeraSettings): void {
     this.settings = settings;
-    this.update({ outcomes: this.formatOutcomes(this.rawOutcomes) });
+    this.update({
+      outcomes: this.formatOutcomes(this.rawOutcomes, this.state.annotations),
+    });
   }
 
   /**
@@ -506,7 +517,7 @@ export class WorkspaceStore {
       // Evaluating the globals document itself: no cross-file references
       // apply here — globals are the shared context, not a consumer.
       if (!this.engine) {
-        this.setRawOutcomes([]);
+        this.setRawOutcomes([], { annotations: EMPTY_ANNOTATIONS });
         return;
       }
       try {
@@ -514,10 +525,14 @@ export class WorkspaceStore {
         const outcomes = await this.engine.evaluateDocument(
           this.state.globalsContent,
         );
-        this.setRawOutcomes(outcomes, { lastError: null });
+        this.setRawOutcomes(outcomes, {
+          lastError: null,
+          annotations: EMPTY_ANNOTATIONS,
+        });
       } catch (err) {
         this.setRawOutcomes([], {
           lastError: err instanceof Error ? err.message : String(err),
+          annotations: EMPTY_ANNOTATIONS,
         });
       }
       return;
@@ -525,7 +540,7 @@ export class WorkspaceStore {
 
     const active = this.activeFile();
     if (!active || !this.engine) {
-      this.setRawOutcomes([]);
+      this.setRawOutcomes([], { annotations: EMPTY_ANNOTATIONS });
       return;
     }
     try {
@@ -536,10 +551,14 @@ export class WorkspaceStore {
       // maps aliases to content.
       await this.engine.setDocuments(this.buildDocumentAliases());
       const outcomes = await this.engine.evaluateDocument(active.content);
-      this.setRawOutcomes(outcomes, { lastError: null });
+      this.setRawOutcomes(outcomes, {
+        lastError: null,
+        annotations: parseAnnotations(active.content),
+      });
     } catch (err) {
       this.setRawOutcomes([], {
         lastError: err instanceof Error ? err.message : String(err),
+        annotations: EMPTY_ANNOTATIONS,
       });
     }
   }
@@ -838,6 +857,17 @@ export class WorkspaceStore {
     return next.files.find((f) => f.id === id)!;
   }
 
+  /**
+   * Instantiate a template as a new file: pick a non-colliding
+   * `<name>-<n>.numr` path, then create it (which selects it, evaluates
+   * it and persists it) with the template's source as content.
+   */
+  createFromTemplate(template: Template): WorkspaceFile {
+    const existing = new Set(this.state.files.map((f) => f.path));
+    const { path } = instantiateTemplate(template, [...existing]);
+    return this.createFile(path, template.content);
+  }
+
   /** Delete a file. If it was active, activate the first remaining
    *  file (or none if the workspace is empty). */
   deleteFile(id: string): void {
@@ -1078,19 +1108,41 @@ export class WorkspaceStore {
   }
 
   /** Re-render raw outcomes with the current settings. Every field is
-   *  preserved except `display`, which gets the settings-aware string. */
-  private formatOutcomes(raw: readonly LineOutcome[]): LineOutcome[] {
-    return raw.map((o) => ({ ...o, display: formatOutcome(o, this.settings) }));
+   *  preserved except `display`, which gets the settings-aware string.
+   *
+   *  A line is treated as money only when the document carries
+   *  `# @money` AND that 1-based line is an annotated input/result. */
+  private formatOutcomes(
+    raw: readonly LineOutcome[],
+    annotations: Annotations,
+  ): LineOutcome[] {
+    let moneyLines: Set<number> | null = null;
+    if (annotations.money) {
+      moneyLines = new Set([...annotations.inputs, ...annotations.results]);
+    }
+    return raw.map((o, index) => ({
+      ...o,
+      display: formatOutcome(
+        o,
+        this.settings,
+        moneyLines !== null && moneyLines.has(index + 1),
+      ),
+    }));
   }
 
   /** Store the raw engine outcomes and broadcast their formatted
-   *  display strings (plus any `extra` state patch) in one update. */
+   *  display strings (plus any `extra` state patch) in one update.
+   *  `extra.annotations` (when present) also drives money formatting. */
   private setRawOutcomes(
     outcomes: LineOutcome[],
     extra: Partial<WorkspaceState> = {},
   ): void {
+    const annotations = extra.annotations ?? this.state.annotations;
     this.rawOutcomes = outcomes;
-    this.update({ ...extra, outcomes: this.formatOutcomes(outcomes) });
+    this.update({
+      ...extra,
+      outcomes: this.formatOutcomes(outcomes, annotations),
+    });
   }
 
   private update(patch: Partial<WorkspaceState>): void {

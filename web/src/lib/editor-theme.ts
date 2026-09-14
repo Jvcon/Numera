@@ -110,6 +110,11 @@ export const numeraTheme = EditorView.theme(
       textDecoration: 'underline',
       textUnderlineOffset: '3px',
     },
+    '.numera-result-emphasized': {
+      /* @result lines read as the template's key outputs: same tertiary
+         color as ordinary values, but heavier so they stand out. */
+      fontWeight: '700',
+    },
     '.numera-result-error': {
       display: 'inline-flex',
       alignItems: 'center',

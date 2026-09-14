@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose owns all theming (see ui/theme/Theme.kt). This base theme only
+      needs to be a no-action-bar platform theme so the single activity can
+      host Compose content without an AppCompat dependency.
+    -->
+    <style name="Theme.Numera" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

@@ -4,9 +4,10 @@ The Android client needs a native editor that reproduces the web's three-column
 table (line number | content | result). The reference Kotlin project NerdCalci
 implements this as a **line-row model**: each line is its own Room entity and its
 own `BasicTextField`, with per-line results stored in the database. We rejected
-that model and chose a **single-document editor**: one `BasicTextField2` holds the
-whole file `content`, and a separately-drawn result gutter renders
-`Vec<LineOutcome>` aligned to each line.
+that model and chose a **single-document editor**: one state-based
+`BasicTextField` (Compose 1.7+, formerly `BasicTextField2`) holds the whole file
+`content`, and a separately-drawn result gutter renders `Vec<LineOutcome>`
+aligned to each line.
 
 Numera's engine and storage are document-based — a file is one `content` string,
 and `Engine::evaluate_document(String) -> Vec<LineOutcome>` evaluates it
@@ -21,8 +22,12 @@ hand-wired up/down arrow navigation, and custom per-file undo.
 ## Consequences
 
 - The result gutter must stay synchronized with the text field's scroll, soft-wrap,
-  and line height. This is the one untested risk and must be de-risked with a
-  throwaway prototype before the full build.
+  and line height. The prototype (issue #10) resolved this: render the gutter in
+  the field's own `TextFieldDecorator` slot and derive each result's row/`y` from
+  the live `TextLayoutResult` (`getLineForOffset` + `getLineTop`, minus the shared
+  `ScrollState`), so scroll/soft-wrap/line-height stay locked with one source of
+  truth. Note `BasicTextField2` was renamed to the state-based `BasicTextField`
+  in Compose 1.7.
 - We adopt NerdCalci's *result-cell* interaction (right-aligned, success/error
   states, copy-on-tap, dashed error underline + tooltip) and its
   `VisualTransformation` syntax-highlighting approach — both already specified for

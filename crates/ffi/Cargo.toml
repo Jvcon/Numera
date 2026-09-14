@@ -10,6 +10,16 @@ repository.workspace = true
 [lib]
 crate-type = ["cdylib"]
 
+# UniFFI 0.25 does not ship a `uniffi-bindgen` binary crate; the supported
+# pattern is to expose the CLI from the consuming crate behind the `cli`
+# feature. Run it with:
+#   cargo run -p numera-ffi --features cli --bin uniffi-bindgen -- \
+#       generate crates/ffi/src/numera.udl --language kotlin --out-dir <dir>
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["cli"]
+
 [dependencies]
 numera-engine = { workspace = true }
 numera-format = { workspace = true }
@@ -20,7 +30,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [build-dependencies]
-uniffi = { version = "0.25", features = ["build"] }
+uniffi = { version = "0.25.3", features = ["build"] }
 
 [features]
 default = []
+# Enables `uniffi::uniffi_bindgen_main()` for the `uniffi-bindgen` bin target.
+cli = ["uniffi/cli"]

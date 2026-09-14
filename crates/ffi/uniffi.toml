@@ -1,0 +1,8 @@
+# UniFFI binding configuration.
+#
+# The crate produces `libnumera_ffi.so` (cargo names it after the package).
+# By default UniFFI's generated Kotlin calls `System.loadLibrary("uniffi_numera")`
+# and would look for `libuniffi_numera.so`; `cdylib_name` makes the generated
+# code look for the artifact cargo actually produces.
+[bindings.kotlin]
+cdylib_name = "numera_ffi"

@@ -1,1 +1,11 @@
 namespace numera {};
+
+interface NumeraEngine {
+    constructor();
+    void set_globals(string content);
+    void set_documents(string docs_json);
+    string evaluate_document(string document);
+    string eval(string line);
+    u32 apply_rates(string rates_json);
+    u32 expression_prefix_utf16_len(string line);
+};

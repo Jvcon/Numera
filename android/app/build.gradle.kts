@@ -101,6 +101,11 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.robolectric)
+
+    // S4 Compose UI tests (issue #11) — Robolectric-backed, no emulator needed.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
+    testImplementation(libs.androidx.ui.test.manifest)
 }
 
 // Export Room schemas so migration tests can validate them (issue #9).

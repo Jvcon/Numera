@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -213,7 +214,7 @@ private fun EditorBody(
     onErrorTap: (String) -> Unit,
 ) {
     // Keyed on the display identity so switching files/globals resets the field.
-    val textFieldState = remember(identity) { rememberTextFieldState(content) }
+    val textFieldState = key(identity) { rememberTextFieldState(content) }
     val scrollState = rememberScrollState()
     val layoutResultState = remember { mutableStateOf<TextLayoutResult?>(null) }
 

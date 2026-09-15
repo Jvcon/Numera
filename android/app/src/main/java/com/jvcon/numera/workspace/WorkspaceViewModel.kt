@@ -5,7 +5,9 @@ import com.jvcon.numera.engine.LineOutcome
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,8 +23,9 @@ import kotlinx.coroutines.launch
  * whole workspace is published as an `alias -> content` table before each
  * evaluation ([buildDocumentAliases], first-wins dedup).
  *
- * Persistence (Room) is a later ticket (#9); this class only exposes
- * [toSnapshot]. There is intentionally no `hydrate` yet.
+ * Persistence is delegated to a [WorkspacePersister] (issue #9). When one is
+ * supplied, [hydrate] loads the persisted snapshot on boot and mutators schedule
+ * a debounced [persistNow]; when it is null the store is purely in-memory.
  *
  * This is a plain JVM class (no `androidx.lifecycle.ViewModel`) so the S1 JVM
  * tests can drive it with a fake engine.
@@ -30,6 +33,7 @@ import kotlinx.coroutines.launch
 class WorkspaceViewModel(
     private val engine: EnginePort,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val persister: WorkspacePersister? = null,
 ) {
 
     private val _state: MutableStateFlow<WorkspaceState> = MutableStateFlow(initialState())
@@ -39,12 +43,119 @@ class WorkspaceViewModel(
 
     private var draftCounter = 0
 
+    /** Pending debounced persistence job; null when nothing is scheduled. */
+    private var saveJob: Job? = null
+
+    private companion object {
+        /** Mirrors web `SAVE_DEBOUNCE_MS`. */
+        const val SAVE_DEBOUNCE_MS = 400L
+    }
+
     /**
      * Expose the engine handle for consumers that need non-state helpers
      * (e.g. the editor's expression-prefix measurement). Mirrors web
      * `getEngine`.
      */
     fun getEngine(): EnginePort = engine
+
+    // -------------------------------------------------------------------------
+    // Hydration / persistence
+    // -------------------------------------------------------------------------
+
+    /**
+     * Hydrate state from persistence. Call once after construction, mirroring
+     * web `hydrate()` (lines 361-403).
+     *
+     * With no persister this simply clears [WorkspaceState.hydrating]. With a
+     * persister, a non-empty snapshot is mapped (v1 rows migrate through
+     * [deriveFoldersForFiles] + [normalizeScopes]); a null/empty snapshot marks
+     * the first run and writes the defaults. Finally the active file is
+     * evaluated.
+     */
+    suspend fun hydrate() {
+        val store = persister
+        if (store == null) {
+            _state.update { it.copy(hydrating = false) }
+            return
+        }
+
+        try {
+            val snapshot = store.load()
+            if (snapshot != null && snapshot.files.isNotEmpty()) {
+                val mapped = snapshot.files.map {
+                    WorkspaceFile(
+                        id = it.id,
+                        path = it.path,
+                        displayName = it.displayName,
+                        pinned = it.pinned,
+                        folderId = it.folderId,
+                        order = it.order,
+                        content = it.content,
+                    )
+                }
+                val mappedFolders = snapshot.folders.map {
+                    WorkspaceFolder(
+                        id = it.id,
+                        name = it.name,
+                        pinned = it.pinned,
+                        collapsed = it.collapsed,
+                        order = it.order,
+                    )
+                }
+                // v1 snapshots may lack folders/ordering — re-derive folder
+                // membership from path prefixes and renumber every scope.
+                val derived = deriveFoldersForFiles(mapped, mappedFolders)
+                val normalized = normalizeScopes(derived.first, derived.second)
+                _state.update {
+                    it.copy(
+                        files = normalized.first,
+                        folders = normalized.second,
+                        activeFileId = snapshot.files.firstOrNull()?.id,
+                        globalsContent = snapshot.globalsContent.ifEmpty { DEFAULT_GLOBALS },
+                        hydrating = false,
+                    )
+                }
+            } else {
+                _state.update { it.copy(hydrating = false) }
+                // First run: persist the defaults so subsequent reloads are
+                // consistent (debounced, mirroring web `scheduleSave()`).
+                scheduleSave()
+            }
+        } catch (err: Exception) {
+            _state.update { it.copy(hydrating = false) }
+        }
+
+        evaluateActiveFile()
+    }
+
+    /**
+     * Debounced persistence. Cancels any pending save and schedules a new one
+     * [SAVE_DEBOUNCE_MS] later. No-op without a persister.
+     */
+    private fun scheduleSave() {
+        if (persister == null) return
+        saveJob?.cancel()
+        saveJob = scope.launch {
+            delay(SAVE_DEBOUNCE_MS)
+            persistNow()
+        }
+    }
+
+    /** Write the current snapshot immediately. No-op without a persister. */
+    suspend fun persistNow() {
+        persister?.save(toSnapshot())
+    }
+
+    /**
+     * Immediately write any pending debounced save (e.g. on page hide / teardown).
+     * Mirrors web `flush()`.
+     */
+    fun flush() {
+        if (saveJob == null) return
+        saveJob?.cancel()
+        saveJob = null
+        scope.launch { persistNow() }
+    }
 
     // -------------------------------------------------------------------------
     // Evaluation
@@ -132,12 +243,14 @@ class WorkspaceViewModel(
             s.copy(files = s.files.map { if (it.id == active.id) it.copy(content = content) else it })
         }
         scope.launch { evaluateActiveFile() }
+        scheduleSave()
     }
 
     /** Replace the globals document and re-evaluate. */
     fun setGlobals(content: String) {
         _state.update { it.copy(globalsContent = content) }
         scope.launch { evaluateActiveFile() }
+        scheduleSave()
     }
 
     /** Rename a file's display name. Empty names are ignored. */
@@ -148,6 +261,7 @@ class WorkspaceViewModel(
         _state.update { s ->
             s.copy(files = s.files.map { if (it.id == id) it.copy(displayName = name) else it })
         }
+        scheduleSave()
     }
 
     // -------------------------------------------------------------------------
@@ -172,6 +286,7 @@ class WorkspaceViewModel(
         val plan = mapOf<String?, List<ScopedRef>>(null to refs)
         val next = applyPlan(s.files, folders, plan)
         _state.update { it.copy(files = next.first, folders = next.second) }
+        scheduleSave()
         return next.second.first { it.id == folder.id }
     }
 
@@ -186,6 +301,7 @@ class WorkspaceViewModel(
         _state.update { s ->
             s.copy(folders = s.folders.map { if (it.id == id) it.copy(name = trimmed) else it })
         }
+        scheduleSave()
     }
 
     /**
@@ -216,6 +332,7 @@ class WorkspaceViewModel(
         val plan = mapOf<String?, List<ScopedRef>>(null to rootRefs)
         val next = applyPlan(filesAll, folders0, plan)
         _state.update { it.copy(files = next.first, folders = next.second) }
+        scheduleSave()
     }
 
     fun toggleFolderCollapsed(id: String) {
@@ -223,6 +340,7 @@ class WorkspaceViewModel(
         _state.update { s ->
             s.copy(folders = s.folders.map { if (it.id == id) it.copy(collapsed = !it.collapsed) else it })
         }
+        scheduleSave()
     }
 
     /**
@@ -290,6 +408,7 @@ class WorkspaceViewModel(
         val plan = mapOf<String?, List<ScopedRef>>(fileScope to refs)
         val next = applyPlan(s.files, s.folders, plan)
         _state.update { it.copy(files = next.first, folders = next.second) }
+        scheduleSave()
     }
 
     /**
@@ -325,6 +444,7 @@ class WorkspaceViewModel(
 
         val next = applyPlan(files0, s.folders, plan)
         _state.update { it.copy(files = next.first, folders = next.second) }
+        scheduleSave()
     }
 
     /**
@@ -382,6 +502,7 @@ class WorkspaceViewModel(
         val next = applyPlan(files0, folders, plan)
         _state.update { it.copy(files = next.first, folders = next.second, activeFileId = id) }
         scope.launch { evaluateActiveFile() }
+        scheduleSave()
         return next.first.first { it.id == id }
     }
 
@@ -401,6 +522,7 @@ class WorkspaceViewModel(
         val next = applyPlan(files0, s.folders, plan)
 
         _state.update { it.copy(files = next.first, folders = next.second, activeFileId = activeFileId) }
+        scheduleSave()
         scope.launch { evaluateActiveFile() }
     }
 
@@ -525,6 +647,7 @@ class WorkspaceViewModel(
         val plan = mapOf<String?, List<ScopedRef>>(scope to refs)
         val next = applyPlan(state.value.files, state.value.folders, plan)
         _state.update { it.copy(files = next.first, folders = next.second) }
+        scheduleSave()
     }
 
     private fun activeFile(): WorkspaceFile? =
@@ -703,8 +826,8 @@ private fun uniqueId(): String = UUID.randomUUID().toString()
 /**
  * Build the initial state from the default fixtures: derive the "daily" folder
  * from the path prefix, then normalize every scope. Mirrors the web
- * `WorkspaceStore` constructor. There is no hydration in #8, so `hydrating` is
- * false.
+ * `WorkspaceStore` constructor. `hydrating` starts true and is cleared by
+ * [WorkspaceViewModel.hydrate].
  */
 private fun initialState(): WorkspaceState {
     val derived = deriveFoldersForFiles(DEFAULT_FILES.map { it.copy() }, emptyList())
@@ -719,6 +842,6 @@ private fun initialState(): WorkspaceState {
         annotations = Annotations.EMPTY_ANNOTATIONS,
         mode = EditorMode.STANDARD,
         lastError = null,
-        hydrating = false,
+        hydrating = true,
     )
 }

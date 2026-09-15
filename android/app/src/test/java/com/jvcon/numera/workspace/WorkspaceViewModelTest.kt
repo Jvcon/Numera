@@ -65,7 +65,7 @@ class WorkspaceViewModelTest {
         assertEquals(Annotations.EMPTY_ANNOTATIONS, s.annotations)
         assertEquals(emptyList(), s.outcomes)
         assertNull(s.lastError)
-        assertFalse(s.hydrating)
+        assertTrue(s.hydrating)
 
         // Root orders are contiguous after normalization.
         assertEquals(listOf(0, 1, 2), rootOrders(vm))

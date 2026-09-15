@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -41,6 +42,28 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric (S3 local-JVM Room tests) needs Android resources and the
+        // JDK --add-opens flags below.
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.jvmArgs(
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-opens=java.base/java.util=ALL-UNNAMED",
+                "--add-opens=java.base/java.io=ALL-UNNAMED",
+                "--add-opens=java.base/java.net=ALL-UNNAMED",
+                "--add-opens=java.base/java.security=ALL-UNNAMED",
+                "--add-opens=java.base/java.text=ALL-UNNAMED",
+                "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+                "--add-opens=java.desktop/java.awt.font=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            )
+        }
+    }
+
+    sourceSets {
+        // Exported Room schemas (schemas/*.json) are visible to local JVM
+        // (Robolectric) migration tests as test assets.
+        getByName("test").assets.srcDir("$projectDir/schemas")
     }
 }
 
@@ -50,6 +73,11 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+
+    // Room persistence (issue #9). room-ktx is empty since 2.7.0 — suspend /
+    // Flow / withTransaction ship in room-runtime.
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
 
     // UniFFI's generated Kotlin bindings call into the engine through JNA. On
     // Android the `@aar` artifact is required: it bundles the native
@@ -66,6 +94,18 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(kotlin("test"))
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // S3 local-JVM (Robolectric) persistence tests — no emulator needed.
+    testImplementation(libs.androidx.room.testing)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.robolectric)
+}
+
+// Export Room schemas so migration tests can validate them (issue #9).
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 // ---------------------------------------------------------------------------

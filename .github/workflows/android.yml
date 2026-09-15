@@ -32,6 +32,11 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          # v4 defaults to `packages: 'tools platform-tools'`, but the `tools`
+          # package was removed from the Android SDK, so `sdkmanager tools`
+          # fails with "Failed to find package 'tools'". Empty string skips it.
+          packages: ''
 
       - name: Install Android NDK
         run: sdkmanager "ndk;25.2.9519653"

@@ -1,57 +1,100 @@
 {
-  // rust-analyzer: tuned to minimize root re-scans / flycheck churn on this 8-crate workspace.
+  // rust-analyzer tuning for this resource-constrained dev container
+  // (2 vCPU / ~8 GB shared with VS Code and opencode).
   //
-  // Key levers to stop repeat indexing:
-  //   * single linkedProject + exclude target/node_modules/web/dist from both VS Code
-  //     and rust-analyzer's OWN watcher (VS Code's files.watcherExclude does not
-  //     propagate to rust-analyzer — it has its own files.watcherExclude).
-  //   * disable buildScripts so proc-macro rebuilds don't invalidate the crate graph.
-  //   * disable cargo.loadOutDirsFromCheck and run clippy only on save (onSave=false
-  //     would also work; we keep it on for diagnostics but bound it to the current crate).
+  // The LSP was being killed repeatedly (~every 45s) while it primed caches for
+  // the whole dependency graph (286 crates / ~1.8M lines of deps), and every
+  // save re-triggered heavy work. Two things caused the churn:
+  //
+  //   1. The previous revision used settings keys that don't exist in the
+  //      rust-analyzer VS Code schema, so they were silently ignored:
+  //        cache.warmup, cache.cargoMetadata, files.watcherExclude,
+  //        restartOnConfigChange, check.exclude
+  //      The working equivalents are used below.
+  //   2. Peak memory. rust-analyzer alone peaked at ~1.3-1.6 GB; two editor
+  //      windows plus opencode pushed the box into memory pressure and the
+  //      extension host recycled the server. The guards below cut the peak.
+  //
+  // If the server still crashes, close duplicate windows of this folder first
+  // (each window runs its own rust-analyzer).
   "rust-analyzer.linkedProjects": ["./Cargo.toml"],
+
+  // ---- Memory / CPU guards -------------------------------------------------
+  // Do not eagerly prime caches for the full dependency graph on project load;
+  // build them lazily as files are opened. This is the single biggest peak-mem
+  // reduction.
+  "rust-analyzer.cachePriming.enable": false,
+  "rust-analyzer.cachePriming.numThreads": 1,
+  // One main-loop worker thread instead of one per core.
+  "rust-analyzer.numThreads": 1,
+  // One proc-macro server instead of two.
+  "rust-analyzer.procMacro.processes": 1,
+  // Cap cargo parallelism so an on-save check can't spawn a wall of rustc jobs.
+  "rust-analyzer.cargo.extraEnv": {
+    "CARGO_NET_GIT_FETCH_WITH_CLI": "true",
+    "CARGO_BUILD_JOBS": "1"
+  },
+
+  // ---- Project loading -----------------------------------------------------
   "rust-analyzer.cargo.allTargets": false,
+  "rust-analyzer.cargo.noDefaultFeatures": false,
   "rust-analyzer.cargo.buildScripts.enable": false,
   "rust-analyzer.cargo.targetDir": true,
-  "rust-analyzer.cargo.noDefaultFeatures": false,
-  "rust-analyzer.cache.cargoMetadata": true,
-  "rust-analyzer.cache.warmup": true,
+  // Do not reload the project (cargo metadata + full re-index) when Cargo.toml
+  // or Cargo.lock is touched; reload manually when dependencies really change.
+  "rust-analyzer.cargo.autoreload": false,
+  "rust-analyzer.restartServerOnConfigChange": false,
+
+  // ---- On-save checks ------------------------------------------------------
+  // `cargo check` is dramatically cheaper than `cargo clippy`, and only the open
+  // crate is checked rather than --workspace.
+  "rust-analyzer.check.command": "check",
   "rust-analyzer.check.workspace": false,
-  "rust-analyzer.check.command": "clippy",
   "rust-analyzer.check.allTargets": false,
-  "rust-analyzer.check.exclude": [
-    // proc-macro crates that we don't edit — skip them so a single edit doesn't
-    // trigger clippy across the whole workspace.
-    "**/wasm/**",
-    "**/ffi/**"
-  ],
+
+  // ---- What rust-analyzer analyses ----------------------------------------
+  // This key takes plain paths relative to the workspace root (globs are NOT
+  // supported), so generated/non-Rust trees are listed as paths.
   "rust-analyzer.files.exclude": [
-    "**/target/**",
-    "**/node_modules/**",
-    "**/web/dist/**"
+    "target",
+    "node_modules",
+    "web/dist",
+    "web/src/wasm",
+    "crates/wasm/pkg",
+    "android"
   ],
-  // rust-analyzer's own file watcher — VS Code's files.watcherExclude is NOT enough.
-  "rust-analyzer.files.watcherExclude": {
-    "**/target/**": true,
-    "**/node_modules/**": true,
-    "**/.git/**": true,
-    "**/web/dist/**": true,
-    "**/*.rs.bk": true
-  },
+
+  // ---- Editor-side CPU savers ---------------------------------------------
+  // Code lenses recompute on every keystroke across the crate graph.
+  "rust-analyzer.lens.enable": false,
+
+  // ---- VS Code file watching ----------------------------------------------
+  // rust-analyzer uses the client watcher by default, so these are the excludes
+  // that stop save-churn in build/generated directories.
   "files.watcherExclude": {
     "**/target/**": true,
     "**/node_modules/**": true,
     "**/.git/**": true,
-    "**/web/dist/**": true
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/crates/wasm/pkg/**": true,
+    "**/web/src/wasm/**": true,
+    "**/android/**/build/**": true,
+    "**/.gradle/**": true,
+    "**/Cargo.lock": true,
+    "**/*.rs.bk": true
+  },
+  "search.exclude": {
+    "**/target": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/crates/wasm/pkg": true,
+    "**/web/src/wasm": true,
+    "**/android/**/build": true,
+    "**/.gradle": true
   },
   "files.exclude": {
     "**/target": true,
     "**/node_modules": true
-  },
-  // Stop rust-analyzer from auto-restarting on every Cargo.toml/Cargo.lock touch.
-  "rust-analyzer.restartOnConfigChange": false,
-  // Suppress Cargo.lock churn: cargo writes to it on every metadata fetch.
-  // numr-core is a git dep — pin a rev so cargo doesn't refetch the branch HEAD.
-  "rust-analyzer.cargo.extraEnv": {
-    "CARGO_NET_GIT_FETCH_WITH_CLI": "true"
   }
 }

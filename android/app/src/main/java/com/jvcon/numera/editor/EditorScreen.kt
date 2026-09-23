@@ -68,6 +68,7 @@ private const val NO_FILE_IDENTITY = "no-file"
 fun EditorScreen(
     viewModel: WorkspaceViewModel,
     modifier: Modifier = Modifier,
+    onOpenNavigation: (() -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -100,6 +101,7 @@ fun EditorScreen(
                     onBack = viewModel::closeGlobals,
                     onOpenGlobals = viewModel::openGlobals,
                     onNewDraft = { viewModel.createDraft() },
+                    onOpenNavigation = onOpenNavigation,
                 )
                 if (state.hydrating) {
                     LoadingState(Modifier.weight(1f))
@@ -149,6 +151,7 @@ private fun EditorTopBar(
     onBack: () -> Unit,
     onOpenGlobals: () -> Unit,
     onNewDraft: () -> Unit,
+    onOpenNavigation: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -157,6 +160,19 @@ private fun EditorTopBar(
             .padding(horizontal = NumeraDimens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (onOpenNavigation != null) {
+            IconButton(
+                onClick = onOpenNavigation,
+                modifier = Modifier.testTag("open-nav"),
+            ) {
+                Text(
+                    text = "☰",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
         if (isGlobals) {
             IconButton(
                 onClick = onBack,

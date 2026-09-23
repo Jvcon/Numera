@@ -5,17 +5,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
-import com.jvcon.numera.editor.EditorScreen
 import com.jvcon.numera.engine.UniFfiEngine
 import com.jvcon.numera.persistence.AppDatabase
 import com.jvcon.numera.persistence.RoomWorkspacePersister
+import com.jvcon.numera.shell.AppShell
 import com.jvcon.numera.ui.theme.NumeraTheme
 import com.jvcon.numera.workspace.WorkspaceViewModel
 import kotlinx.coroutines.launch
 
 /**
  * Single-activity shell. Wires the persistence + engine seams together and
- * renders the editor (issue #11).
+ * renders [AppShell] — file list chrome + editor (issues #11, #12).
  */
 class MainActivity : ComponentActivity() {
 
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NumeraTheme {
-                EditorScreen(viewModel = viewModel)
+                AppShell(viewModel = viewModel)
             }
         }
     }

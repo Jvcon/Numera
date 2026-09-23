@@ -15,11 +15,22 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/android.yml'
+  # Lets you build a downloadable APK on demand from the Actions tab.
+  workflow_dispatch:
+
+# A newer push/PR supersedes an in-flight run on the same ref.
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: Assemble debug
+    name: Assemble debug APK
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -46,6 +57,18 @@ jobs:
         with:
           targets: aarch64-linux-android,x86_64-linux-android
 
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-android-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-android-${{ runner.os }}-
+
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --version 3.5.4
 
@@ -60,9 +83,19 @@ jobs:
         working-directory: android
 
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: ./gradlew :app:assembleDebug
         working-directory: android
 
+      # Upload before the tests so the installable APK is always available for
+      # real-device testing, even if a unit test later fails.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: numera-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Run JVM unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon
+        run: ./gradlew :app:testDebugUnitTest
         working-directory: android

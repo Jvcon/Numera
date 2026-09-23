@@ -105,7 +105,12 @@ dependencies {
     // S4 Compose UI tests (issue #11) — Robolectric-backed, no emulator needed.
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.ui.test.junit4)
-    testImplementation(libs.androidx.ui.test.manifest)
+    // `ui-test-manifest` registers the empty `ComponentActivity` that
+    // `createComposeRule()` launches. Robolectric reads the merged *debug*
+    // manifest, so this must be on the debug runtime classpath — a
+    // `testImplementation` dependency's manifest is not merged, and the rule
+    // then dies with "Unable to resolve activity" (RoboMonitoringInstrumentation).
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
 
 // Export Room schemas so migration tests can validate them (issue #9).

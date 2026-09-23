@@ -241,13 +241,13 @@ private fun FolderRow(
         RowAction(
             label = if (folder.pinned) "★" else "☆",
             tag = "pin-folder-${folder.id}",
-            contentDescription = if (folder.pinned) "Unpin folder" else "Pin folder",
+            description = if (folder.pinned) "Unpin folder" else "Pin folder",
             onClick = onTogglePin,
         )
         RowAction(
             label = "✕",
             tag = "delete-folder-${folder.id}",
-            contentDescription = "Delete folder",
+            description = "Delete folder",
             onClick = onDelete,
         )
         Spacer(Modifier.width(NumeraDimens.space1))
@@ -296,13 +296,13 @@ private fun FileRow(
         RowAction(
             label = if (file.pinned) "★" else "☆",
             tag = "pin-file-${file.id}",
-            contentDescription = if (file.pinned) "Unpin file" else "Pin file",
+            description = if (file.pinned) "Unpin file" else "Pin file",
             onClick = onTogglePin,
         )
         RowAction(
             label = "✕",
             tag = "delete-file-${file.id}",
-            contentDescription = "Delete file",
+            description = "Delete file",
             onClick = onDelete,
         )
         Spacer(Modifier.width(NumeraDimens.space1))
@@ -313,10 +313,9 @@ private fun FileRow(
 private fun RowAction(
     label: String,
     tag: String,
-    contentDescription: String,
+    description: String,
     onClick: () -> Unit,
 ) {
-    val description = contentDescription
     Box(
         modifier = Modifier
             .size(NumeraDimens.touchTargetMin)

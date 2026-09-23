@@ -130,7 +130,9 @@ class AppShellTest {
         val vm = newViewModel()
         renderShell(vm, AppWindowLayout(AppWindowSizeClass.EXPANDED))
 
-        val file = vm.state.value.files.first { !it.draft && !it.pinned }
+        val file = vm.state.value.files.first { !it.draft && !it.pinned && it.folderId == null }
+        composeRule.onNodeWithTag("file-list", useUnmergedTree = true)
+            .performScrollToNode(hasTestTag("pin-file-${file.id}"))
         composeRule.onNodeWithTag("pin-file-${file.id}").performClick()
         composeRule.waitForIdle()
 

@@ -70,7 +70,14 @@ jobs:
             cargo-android-${{ runner.os }}-
 
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --version 3.5.4
+        # ~/.cargo/bin is part of the Cargo cache, so a warm cache already ships
+        # the pinned binary and a bare `cargo install` fails with "already
+        # exists in destination". Skip when the right version is present and
+        # force-reinstall otherwise.
+        run: |
+          if ! cargo-ndk --version 2>/dev/null | grep -q '3\.5\.4'; then
+            cargo install cargo-ndk --version 3.5.4 --force
+          fi
 
       - name: Export Android NDK path
         run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> "$GITHUB_ENV"

@@ -60,7 +60,13 @@ class EditorScreenTest {
         }
         renderEditor(engine)
 
-        composeRule.onNodeWithTag("result-gutter").assertIsDisplayed()
+        // The editor's `BasicTextField` declares `mergeDescendants = true`, so in
+        // the merged semantics tree the plain gutter container is collapsed into
+        // the field and only the clickable (merging) result cells survive. Address
+        // the container in the unmerged tree; the cells below are merging nodes and
+        // resolve in the default merged tree.
+        composeRule.onNodeWithTag("result-gutter", useUnmergedTree = true)
+            .assertIsDisplayed()
         composeRule.onNodeWithTag("result-0").assertIsDisplayed().assertTextEquals("1")
         composeRule.onNodeWithTag("result-1").assertIsDisplayed().assertTextEquals("2")
         // Blank line (2) and comment line (3) emit no result cell.

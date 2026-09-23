@@ -46,6 +46,15 @@ android {
         // JDK --add-opens flags below.
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
+            // Surface full assertion messages and stdout in CI logs. The short
+            // default format hides Compose assertion reasons, which makes the
+            // S4 (Robolectric-backed Compose) failures undiagnosable from CI.
+            it.testLogging {
+                events("skipped", "failed")
+                exceptionFormat =
+                    org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                showStandardStreams = true
+            }
             it.jvmArgs(
                 "--add-opens=java.base/java.lang=ALL-UNNAMED",
                 "--add-opens=java.base/java.util=ALL-UNNAMED",

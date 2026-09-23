@@ -96,7 +96,7 @@ class FileListRowsTest {
 
     private fun file(
         id: String,
-        order: Int,
+        order: Int = 0,
         pinned: Boolean = false,
         folderId: String? = null,
         draft: Boolean = false,

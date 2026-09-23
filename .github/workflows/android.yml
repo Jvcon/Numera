@@ -29,7 +29,10 @@ permissions:
 jobs:
   build:
     name: Assemble debug APK
-    runs-on: ubuntu-latest
+    # Pin the runner image explicitly: the `ubuntu-latest` label migrates to
+    # Ubuntu 26.04 beginning 2026-10-19 (see actions/runner-images#14748), and
+    # the Android NDK/SDK toolchain here is validated against 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -58,7 +61,9 @@ jobs:
           targets: aarch64-linux-android,x86_64-linux-android
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        # v5 runs on the Node.js 24 runtime; v4 still targets the deprecated
+        # Node.js 20 runtime.
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin

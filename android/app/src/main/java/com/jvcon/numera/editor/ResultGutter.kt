@@ -2,6 +2,7 @@ package com.jvcon.numera.editor
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,8 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.input.TextFieldDecorator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
@@ -25,22 +31,15 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import com.jvcon.numera.engine.LineOutcome
 import com.jvcon.numera.ui.theme.NumeraDimens
 import kotlin.math.roundToInt
-
-/** Fixed width of the right-hand result column. */
-internal val RESULT_GUTTER_WIDTH: Dp = 112.dp
 
 /**
  * Decorator that lays the text field, the error-underline overlay, and the
@@ -87,7 +86,7 @@ internal class ResultGutterDecorator(
                 onCopyValue = onCopyValue,
                 onErrorTap = onErrorTap,
                 modifier = Modifier
-                    .width(RESULT_GUTTER_WIDTH)
+                    .width(NumeraDimens.resultGutterWidth)
                     .fillMaxHeight(),
             )
         }
@@ -117,47 +116,60 @@ private fun ResultGutter(
 ) {
     Box(
         modifier = modifier
+            // Distinct results column (web: surface-container-low + a 1dp
+            // outline-variant border between source and results).
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .clipToBounds()
-            .testTag("result-gutter")
-            .padding(end = NumeraDimens.space2),
+            .testTag("result-gutter"),
     ) {
-        val layout = layoutResult ?: return@Box
-        val textLength = layout.layoutInput.text.length
-        if (textLength == 0) return@Box
+        VerticalDivider(
+            modifier = Modifier.align(Alignment.Start),
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
 
-        outcomes.forEachIndexed { index, outcome ->
-            // Error cells win over empty cells (matches the web `outcomeToMarker`
-            // ordering: isError, then isEmpty, then value).
-            if (outcome.isError) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(end = NumeraDimens.space2),
+        ) {
+            val layout = layoutResult ?: return@Box
+            val textLength = layout.layoutInput.text.length
+            if (textLength == 0) return@Box
+
+            outcomes.forEachIndexed { index, outcome ->
+                // Error cells win over empty cells (matches the web `outcomeToMarker`
+                // ordering: isError, then isEmpty, then value).
+                if (outcome.isError) {
+                    val anchor = anchors.getOrNull(index) ?: return@forEachIndexed
+                    val lineTop = visualLineTop(layout, anchor, textLength)
+                    ErrorCell(
+                        onTap = { onErrorTap(outcome.error ?: "Error") },
+                        style = errorStyle,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // `offset {}` reads scrollState in the layout phase, so
+                            // scrolling relayouts the gutter without recomposing it.
+                            .offset { IntOffset(0, (lineTop - scrollState.value).roundToInt()) }
+                            .testTag("error-$index"),
+                    )
+                    return@forEachIndexed
+                }
+
+                // Empty / comment lines render nothing but keep their row.
+                if (outcome.isEmpty || outcome.display.isEmpty()) return@forEachIndexed
+
                 val anchor = anchors.getOrNull(index) ?: return@forEachIndexed
                 val lineTop = visualLineTop(layout, anchor, textLength)
-                ErrorCell(
-                    onTap = { onErrorTap(outcome.error ?: "Error") },
-                    style = errorStyle,
+                ValueCell(
+                    text = outcome.display,
+                    style = resultStyle,
+                    onTap = { onCopyValue(outcome.display) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        // `offset {}` reads scrollState in the layout phase, so
-                        // scrolling relayouts the gutter without recomposing it.
                         .offset { IntOffset(0, (lineTop - scrollState.value).roundToInt()) }
-                        .testTag("error-$index"),
+                        .testTag("result-$index"),
                 )
-                return@forEachIndexed
             }
-
-            // Empty / comment lines render nothing but keep their row.
-            if (outcome.isEmpty || outcome.display.isEmpty()) return@forEachIndexed
-
-            val anchor = anchors.getOrNull(index) ?: return@forEachIndexed
-            val lineTop = visualLineTop(layout, anchor, textLength)
-            ValueCell(
-                text = outcome.display,
-                style = resultStyle,
-                onTap = { onCopyValue(outcome.display) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset { IntOffset(0, (lineTop - scrollState.value).roundToInt()) }
-                    .testTag("result-$index"),
-            )
         }
     }
 }
@@ -192,7 +204,10 @@ private fun ValueCell(
     )
 }
 
-/** An error cell: "⚠ Err" + info glyph. Tapping surfaces the message. */
+/**
+ * An error cell: `[warning] Err [info]`, tinted with the error color. Tapping
+ * anywhere on it surfaces the message.
+ */
 @Composable
 private fun ErrorCell(
     style: TextStyle,
@@ -204,14 +219,26 @@ private fun ErrorCell(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,
     ) {
+        Icon(
+            imageVector = Icons.Filled.Warning,
+            contentDescription = null,
+            tint = style.color,
+            modifier = Modifier.size(NumeraDimens.iconSmall),
+        )
+        Spacer(Modifier.width(NumeraDimens.space1))
         Text(
-            text = "⚠ Err",
+            text = "Err",
             style = style,
             maxLines = 1,
             softWrap = false,
         )
         Spacer(Modifier.width(NumeraDimens.space1))
-        InfoIcon(color = style.color, size = 14.dp)
+        Icon(
+            imageVector = Icons.Outlined.Info,
+            contentDescription = "Show error",
+            tint = style.color,
+            modifier = Modifier.size(NumeraDimens.iconSmall),
+        )
     }
 }
 
@@ -234,8 +261,11 @@ private fun ErrorUnderlineOverlay(
         if (textLength == 0) return@Canvas
 
         val scroll = scrollState.value.toFloat()
-        val stroke = 1.dp.toPx()
-        val dash = floatArrayOf(4.dp.toPx(), 3.dp.toPx())
+        val stroke = NumeraDimens.errorUnderlineStroke.toPx()
+        val dash = floatArrayOf(
+            NumeraDimens.errorUnderlineDash.toPx(),
+            NumeraDimens.errorUnderlineGap.toPx(),
+        )
 
         outcomes.forEachIndexed { index, outcome ->
             if (!outcome.isError) return@forEachIndexed
@@ -245,7 +275,7 @@ private fun ErrorUnderlineOverlay(
             val left = layout.getLineLeft(visualLine)
             val right = layout.getLineRight(visualLine)
             val bottom = layout.getLineBottom(visualLine)
-            val y = bottom - scroll - 2.dp.toPx()
+            val y = bottom - scroll - NumeraDimens.errorUnderlineOffset.toPx()
             drawLine(
                 color = color,
                 start = Offset(left, y),
@@ -254,35 +284,5 @@ private fun ErrorUnderlineOverlay(
                 pathEffect = PathEffect.dashPathEffect(dash),
             )
         }
-    }
-}
-
-/** Minimal circled-"i" glyph, drawn so no icon dependency is required. */
-@Composable
-private fun InfoIcon(color: Color, size: Dp, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(size)) {
-        val w = this.size.width
-        val h = this.size.height
-        val stroke = w / 12f
-        val cx = w / 2f
-        val cy = h / 2f
-        drawCircle(
-            color = color,
-            radius = w / 2f - stroke / 2f,
-            center = Offset(cx, cy),
-            style = Stroke(width = stroke),
-        )
-        drawCircle(
-            color = color,
-            radius = stroke * 0.9f,
-            center = Offset(cx, h * 0.30f),
-        )
-        drawLine(
-            color = color,
-            start = Offset(cx, h * 0.42f),
-            end = Offset(cx, h * 0.72f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round,
-        )
     }
 }

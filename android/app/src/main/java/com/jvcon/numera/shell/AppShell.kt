@@ -1,11 +1,13 @@
 package com.jvcon.numera.shell
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -13,11 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -125,7 +129,12 @@ fun AppShell(
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     drawerContent = {
-                        ModalDrawerSheet(modifier = Modifier.width(NumeraDimens.sidePanelWidth)) {
+                        // Zero insets: FileListPane owns its own, so the drawer
+                        // and the expanded pane inset identically.
+                        ModalDrawerSheet(
+                            modifier = Modifier.width(NumeraDimens.sidePanelWidth),
+                            windowInsets = WindowInsets(0.dp),
+                        ) {
                             pane(Modifier.fillMaxSize())
                         }
                     },
@@ -146,6 +155,8 @@ fun AppShell(
                             .width(NumeraDimens.sidePanelWidth)
                             .fillMaxHeight(),
                     )
+                    // The pane's right border, full height (web: border-inline-end).
+                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     EditorScreen(
                         viewModel = viewModel,
                         modifier = Modifier.weight(1f),
@@ -159,6 +170,8 @@ fun AppShell(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    // Web scrim: 32% of the scrim color.
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
@@ -177,7 +190,7 @@ fun AppShell(
             modifier = Modifier
                 .align(fabAlignmentFor(layout.hinge))
                 .navigationBarsPadding()
-                .padding(NumeraDimens.space4),
+                .padding(NumeraDimens.spacingBlockLoose),
         )
     }
 

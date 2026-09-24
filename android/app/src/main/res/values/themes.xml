@@ -4,6 +4,20 @@
       Compose owns all theming (see ui/theme/Theme.kt). This base theme only
       needs to be a no-action-bar platform theme so the single activity can
       host Compose content without an AppCompat dependency.
+
+      The window is drawn edge-to-edge (MainActivity calls enableEdgeToEdge()),
+      so both system bars are transparent. windowLightStatusBar /
+      windowLightNavigationBar are the launch-time fallback for system-bar icon
+      contrast; MainActivity keeps them in sync with the resolved Compose theme.
+      shortEdges lets content flow behind a display cutout instead of being
+      letterboxed.
     -->
-    <style name="Theme.Numera" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Numera" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
 </resources>

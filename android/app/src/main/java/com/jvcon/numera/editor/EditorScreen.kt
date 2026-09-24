@@ -2,26 +2,38 @@ package com.jvcon.numera.editor
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Functions
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,6 +53,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.jvcon.numera.engine.EnginePort
 import com.jvcon.numera.engine.LineOutcome
 import com.jvcon.numera.ui.theme.JetBrainsMono
@@ -89,12 +102,14 @@ fun EditorScreen(
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
 
-    Surface(
+    Scaffold(
         modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.surface,
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize()) {
+        containerColor = MaterialTheme.colorScheme.surface,
+        // The top bar owns the status-bar inset; the body owns the
+        // navigation-bar/IME insets, so Scaffold itself adds none.
+        contentWindowInsets = WindowInsets(0.dp),
+        topBar = {
+            Column {
                 EditorTopBar(
                     title = title,
                     isGlobals = isGlobals,
@@ -103,47 +118,66 @@ fun EditorScreen(
                     onNewDraft = { viewModel.createDraft() },
                     onOpenNavigation = onOpenNavigation,
                 )
-                if (state.hydrating) {
-                    LoadingState(Modifier.weight(1f))
-                } else {
-                    EditorBody(
-                        modifier = Modifier.weight(1f),
-                        identity = identity,
-                        content = content,
-                        outcomes = state.outcomes,
-                        engine = viewModel.getEngine(),
-                        onContentChange = viewModel::setActiveContent,
-                        onCopyValue = { value ->
-                            clipboard.setText(AnnotatedString(value))
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Copied",
-                                    duration = SnackbarDuration.Short,
-                                )
-                            }
-                        },
-                        onErrorTap = { message ->
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = message,
-                                    duration = SnackbarDuration.Short,
-                                )
-                            }
-                        },
-                    )
-                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
+        },
+        snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .testTag("copy-snackbar"),
+                    .testTag("copy-snackbar")
+                    .imePadding()
+                    .navigationBarsPadding(),
             )
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                // Keyboard + gesture/3-button nav never overlap the document.
+                .imePadding()
+                .navigationBarsPadding(),
+        ) {
+            if (state.hydrating) {
+                LoadingState(Modifier.weight(1f))
+            } else {
+                EditorBody(
+                    modifier = Modifier.weight(1f),
+                    identity = identity,
+                    content = content,
+                    outcomes = state.outcomes,
+                    engine = viewModel.getEngine(),
+                    onContentChange = viewModel::setActiveContent,
+                    onCopyValue = { value ->
+                        clipboard.setText(AnnotatedString(value))
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "Copied",
+                                duration = SnackbarDuration.Short,
+                            )
+                        }
+                    },
+                    onErrorTap = { message ->
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = message,
+                                duration = SnackbarDuration.Short,
+                            )
+                        }
+                    },
+                )
+            }
         }
     }
 }
 
-/** Minimal chrome: back arrow (globals mode), title, and draft/globals actions. */
+/**
+ * Chrome mirroring the web top bar: 64dp, `surfaceContainerLow`, action icons on
+ * the end. A hamburger leads only when a drawer exists (Compact/Medium); a back
+ * arrow replaces it while Globals is open.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditorTopBar(
     title: String,
@@ -153,68 +187,78 @@ private fun EditorTopBar(
     onNewDraft: () -> Unit,
     onOpenNavigation: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(NumeraDimens.appBarHeight)
-            .padding(horizontal = NumeraDimens.space2),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (onOpenNavigation != null) {
-            IconButton(
-                onClick = onOpenNavigation,
-                modifier = Modifier.testTag("open-nav"),
-            ) {
-                Text(
-                    text = "☰",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+    TopAppBar(
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("editor-title"),
+            )
+        },
+        navigationIcon = {
+            if (onOpenNavigation != null) {
+                IconButton(
+                    onClick = onOpenNavigation,
+                    modifier = Modifier.testTag("open-nav"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Menu,
+                        contentDescription = "Open navigation",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-        }
-
-        if (isGlobals) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.testTag("editor-back"),
-            ) {
-                Text(
-                    text = "←",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+            if (isGlobals) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag("editor-back"),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Exit Globals",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-        } else {
-            Spacer(Modifier.width(NumeraDimens.space2))
-        }
-
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f)
-                .testTag("editor-title"),
-        )
-
-        TextButton(
-            onClick = onNewDraft,
-            modifier = Modifier.testTag("new-draft"),
-        ) {
-            Text("New draft")
-        }
-
-        if (!isGlobals) {
+        },
+        actions = {
             TextButton(
-                onClick = onOpenGlobals,
-                modifier = Modifier.testTag("open-globals"),
+                onClick = onNewDraft,
+                modifier = Modifier.testTag("new-draft"),
             ) {
-                Text("Globals")
+                Icon(
+                    imageVector = Icons.Filled.Bolt,
+                    contentDescription = null,
+                    modifier = Modifier.size(NumeraDimens.iconSmall),
+                )
+                Spacer(Modifier.width(NumeraDimens.spacingInlineTight))
+                Text("New draft")
             }
-        }
-    }
+
+            if (!isGlobals) {
+                IconButton(
+                    onClick = onOpenGlobals,
+                    modifier = Modifier.testTag("open-globals"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Functions,
+                        contentDescription = "Global variables",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        expandedHeight = NumeraDimens.appBarHeight,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    )
 }
 
 /** The whole-document text field plus its live result gutter. */
@@ -267,6 +311,11 @@ private fun EditorBody(
         state = textFieldState,
         modifier = modifier
             .fillMaxWidth()
+            // Web editor padding: spacing-block-loose inline, spacing-block block.
+            .padding(
+                horizontal = NumeraDimens.spacingBlockLoose,
+                vertical = NumeraDimens.spacingBlock,
+            )
             .testTag("editor"),
         textStyle = editorStyle,
         lineLimits = TextFieldLineLimits.MultiLine(),

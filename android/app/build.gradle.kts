@@ -98,6 +98,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
 
     // Adaptive layout (issue #12): Material 3 window-size class + fold posture.
     implementation(libs.androidx.window)

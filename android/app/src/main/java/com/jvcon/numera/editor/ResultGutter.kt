@@ -123,7 +123,7 @@ private fun ResultGutter(
             .testTag("result-gutter"),
     ) {
         VerticalDivider(
-            modifier = Modifier.align(Alignment.Start),
+            modifier = Modifier.align(Alignment.CenterStart),
             color = MaterialTheme.colorScheme.outlineVariant,
         )
 

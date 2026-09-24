@@ -595,12 +595,20 @@ Material's **Expanded** class (≥ 840dp).
 |---|---|---|---|
 | Compact | < 600dp | phone | Modal navigation drawer + FAB + full-width top/status bars |
 | Medium | 600–840dp | foldable (inner) / small tablet | Navigation rail (80dp) + FAB, or drawer; **no two-pane split** (matches web today) |
-| Expanded | ≥ 840dp | tablet / unfolded foldable | Persistent 280dp sidebar (or nav rail) + editor + FAB |
+| Expanded | ≥ 840dp | tablet / unfolded foldable | File list + editor **two-pane split** (§13.7), or persistent 280dp sidebar + editor; + FAB |
 
 The web currently has **no two-pane split view**; below 1024px the
 sidebar is always a drawer, and above it is always a persistent column.
-Android should reproduce this exact two-state behavior first, then
-consider a true two-pane split as a later enhancement.
+Android has reproduced this exact two-state behavior (issue #12) and is
+where the next step lives: the **two-pane split** the web deliberately
+lacks (§13.7).
+
+Window facts are read from the **official adaptive APIs**, not from a raw
+configuration width: `currentWindowAdaptiveInfo().windowSizeClass`
+(Material 3 adaptive) over androidx.window's `WindowSizeClass`, which also
+carries the `Large` (1200–1600dp) and `Extra-large` (≥1600dp) width
+breakpoints. Only the shell reads window facts; the editor and state layer
+never do (§13.4).
 
 ### 13.2 Dimension mapping
 
@@ -628,10 +636,12 @@ role *names* and relative sizes are the contract.
   bar.
 - Stacking (web reference, §9.1): drawer 3 / backdrop 2, FAB 4, dev
   overlay 10, command palette 20, snackbar 30.
-- **Foldables:** never place the FAB or any overlay in the hinge gap.
-  Snap the FAB to the nearest content edge and treat the hinge as a hard
-  margin. In dual-screen postures, defer to a two-pane decision in a
-  later phase (the web has no split view yet).
+- **Foldables:** never place the FAB, snackbar, or any dialog on the fold
+  seam. The FAB snaps to the content edge away from the hinge; overlays
+  follow the posture rules in §13.6. A separating hinge is a hard margin
+  only when it is opaque (`OcclusionType.FULL`); a flexible seam
+  (`OCCLUSION_NONE`) may be drawn across, but floating and interactive
+  content still keeps clear of it.
 - The snackbar is bottom-center and must clear the FAB (web uses
   `z-index 30` above the FAB's 4).
 
@@ -639,9 +649,9 @@ role *names* and relative sizes are the contract.
 
 `files`, `drafts`, `globalsContent`, `editingTarget`, and `outcomes` are
 all layout-independent. The same store can drive every form factor; only
-the chrome changes (drawer vs rail vs persistent sidebar, FAB placement,
-insets). Keep the state layer identical across web and Android so the
-editor/eval engine is written once.
+the chrome changes (drawer vs rail vs persistent sidebar vs two-pane
+split, FAB placement, insets). Keep the state layer identical across web
+and Android so the editor/eval engine is written once.
 
 ### 13.5 Globals & drafts are unaffected by form factor
 
@@ -650,6 +660,68 @@ editor/eval engine is written once.
 - **Drafts** are memory-only scratch buffers with no persistence and no
   list presence on any form factor.
 
+### 13.6 Fold posture and occlusion
+
+A foldable reports a `FoldingFeature` with an `orientation`, a `state`
+(`FLAT` / `HALF_OPENED`), and an `occlusionType` (`FULL` / `NONE`). Only
+**separating** features change layout; a non-separating crease is ignored.
+
+| Posture | Feature | Layout |
+|---|---|---|
+| Flat (unfolded) | fold `state = FLAT` | two-pane split (§13.7) when width allows |
+| Book | vertical fold, `state = HALF_OPENED` | content splits **left / right** |
+| Tabletop | horizontal fold, `state = HALF_OPENED` | content splits **top / bottom**; controls move off the seam |
+
+- `OcclusionType.FULL` (dual-screen hinge): nothing renders in the seam;
+  it is a hard margin for the whole guarded area.
+- `OcclusionType.NONE` (flexible crease): drawing across the seam is
+  allowed; only floating and interactive elements keep a gutter.
+
+Chrome derives from these facts; the state model does not (§13.4). This is
+the vocabulary of `AppWindowLayout` in the Android shell.
+
+### 13.7 Expanded two-pane (the foldable split)
+
+At Expanded width (≥840dp) the file list and editor become a true
+**two-pane split**: file list in the leading pane, editor in the trailing
+pane, with a separating hinge used as the natural divider between them
+instead of a margin that shrinks the whole shell.
+
+- The split is a chrome concern; both panes render the same state and the
+  editor/result-gutter behavior is unchanged (§13.4).
+- In book posture the list belongs on one side of the seam and the editor
+  on the other; on a flat wide screen the panes divide at the
+  hinge-relative fraction.
+- Below Expanded the shell falls back to the Compact/Medium behavior
+  (modal drawer, single editor) — the split is never forced onto a narrow
+  window or a multi-window half.
+
+### 13.8 Continuity across fold / unfold
+
+Folding and unfolding is a configuration change and must not lose work.
+
+- Workspace state (`files`, `drafts`, `globals`, `editing target`,
+  `outcomes`) lives in a retained `WorkspaceViewModel`. `draft`s are
+  memory-only (§13.5) and MUST survive a fold, so the ViewModel and the
+  persistence seam are created once, not per Activity creation.
+- Transient UI state (drawer open, dialogs, scroll) uses
+  `rememberSaveable` where it must survive; otherwise it may reset.
+- The app opts out of Activity recreation for size changes
+  (`configChanges` for screen size / orientation / screen layout) only
+  after the state retention above is in place. Orientation, aspect ratio,
+  and resizability are never locked (they trigger large-screen
+  compatibility mode).
+
+### 13.9 Foldable test matrix
+
+- Simulate postures and occlusion with `window-testing`
+  (`WindowLayoutInfoPublisherRule`); the shell already takes
+  `AppWindowLayout` as an explicit parameter, so any form factor is
+  reachable from a JVM test.
+- Verify on the official set: foldable (841×701dp), dual-display foldable
+  (`OCCLUSION_FULL`), flexible-seam foldable (`OCCLUSION_NONE`), and the
+  resizable emulator, plus tabletop and book postures.
+
 ---
 
 ## 14. What Comes Next
@@ -657,8 +729,8 @@ editor/eval engine is written once.
 | Phase | Adds | Why |
 |---|---|---|
 | 4 (done) | Command palette, FAB, snackbar, globals editor, drafts | Polishes user-facing interaction |
-| 5 | Android client (Compact/Medium/Expanded) | Align to §13; port the token layer + state model 1:1 |
-| 5 | Two-pane split (tablet/foldable) | Web today has no split view; needed for Expanded productivity |
+| 5 (done) | Android client (Compact/Medium/Expanded) | Align to §13; port the token layer + state model 1:1 |
+| 5b | Foldable support: fold/unfold continuity, posture + occlusion, expanded two-pane split (§13.6–§13.9) | Unfolded foldables are the primary large-screen opportunity |
 
 Each phase keeps this document current — new tokens get a row here
 *before* a component consumes them.

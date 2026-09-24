@@ -51,4 +51,23 @@ The screen-width bucket that drives chrome choice — `compact` (<600dp), `mediu
 _Avoid_: breakpoint, form factor
 
 **hinge**:
-The physical fold seam on a foldable device, treated as a hard margin that overlays (FAB, snackbar) never cross.
+The physical fold seam on a foldable device. It is the natural divider for the
+expanded two-pane split, and a hard margin for floating overlays (FAB, snackbar,
+dialog) that must never land on it.
+_Avoid_: seam, gap
+
+**fold posture**:
+The arrangement implied by a half-opened `hinge` — `tabletop` (horizontal fold;
+content splits top/bottom) or `book` (vertical fold; content splits left/right).
+_Avoid_: orientation, mode
+
+**occlusion type**:
+Whether a `hinge` physically blocks content — `full` (dual-screen; nothing renders
+in the seam) or `none` (flexible crease; drawing across is allowed but floating
+content keeps clear).
+_Avoid_: hinge kind, seam type
+
+**two-pane split**:
+The Expanded-width shell that places the file list and the editor side by side,
+divided at the `hinge`.
+_Avoid_: split view, sidebar mode

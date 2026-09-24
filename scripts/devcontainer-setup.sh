@@ -15,6 +15,34 @@ if [ -d "$HOME/.npm" ] && [ ! -w "$HOME/.npm" ]; then
   sudo chown -R "$(id -u):$(id -g)" "$HOME/.npm" || true
 fi
 
+# GitHub CLI: the devcontainer `github-cli` feature normally installs this, but
+# the issue-tracker skills hard-depend on `gh`. Verify it and install it if the
+# feature was skipped (e.g. a container built before the feature existed), so
+# agent-driven issue workflows never start without it.
+if command -v gh >/dev/null 2>&1; then
+  log "GitHub CLI already present: $(gh --version | head -n1)"
+else
+  log "Installing GitHub CLI"
+  gh_arch="$(uname -m)"
+  case "$gh_arch" in
+    x86_64) gh_arch=amd64 ;;
+    aarch64 | arm64) gh_arch=arm64 ;;
+  esac
+  gh_version="$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest \
+    | grep -oP '"tag_name":\s*"v\K[^"]+' | head -n1)"
+  gh_version="${gh_version:-2.101.0}"
+  tmp="$(mktemp -d)"
+  if curl -fsSL -o "$tmp/gh.tar.gz" \
+      "https://github.com/cli/cli/releases/download/v${gh_version}/gh_${gh_version}_linux_${gh_arch}.tar.gz" \
+    && tar -xzf "$tmp/gh.tar.gz" -C "$tmp" \
+    && sudo install -m 0755 "$tmp/gh_${gh_version}_linux_${gh_arch}/bin/gh" /usr/local/bin/gh; then
+    log "GitHub CLI installed: $(gh --version | head -n1)"
+  else
+    log "WARNING: GitHub CLI install failed; issue-tracker skills will not work until gh is available"
+  fi
+  rm -rf "$tmp"
+fi
+
 log "Installing OpenCode"
 curl -fsSL https://opencode.ai/install | bash || true
 export PATH="$HOME/.opencode/bin:$PATH"

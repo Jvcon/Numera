@@ -16,9 +16,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Functions
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,12 +48,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jvcon.numera.R
 import com.jvcon.numera.engine.EnginePort
 import com.jvcon.numera.engine.LineOutcome
 import com.jvcon.numera.ui.theme.JetBrainsMono
@@ -82,6 +84,7 @@ fun EditorScreen(
     viewModel: WorkspaceViewModel,
     modifier: Modifier = Modifier,
     onOpenNavigation: (() -> Unit)? = null,
+    onOpenTemplate: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -93,10 +96,11 @@ fun EditorScreen(
     } else {
         activeFile?.content ?: ""
     }
+    val globalsTitle = stringResource(R.string.globals)
     val title = if (isGlobals) {
-        "Globals"
+        globalsTitle
     } else {
-        activeFile?.displayName ?: "Numera"
+        activeFile?.displayName ?: stringResource(R.string.app_name)
     }
 
     // A non-list editing target (`globals` or a `draft`) exits with a trailing
@@ -104,7 +108,12 @@ fun EditorScreen(
     // See docs/interaction-model.md §4.
     val isDraft = !isGlobals && activeFile?.draft == true
     val showExit = isGlobals || isDraft
-    val exitDescription = if (isGlobals) "Exit Globals" else "Exit draft"
+    val exitDescription = if (isGlobals) {
+        stringResource(R.string.exit_globals)
+    } else {
+        stringResource(R.string.exit_draft)
+    }
+    val copiedLabel = stringResource(R.string.copied)
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -124,7 +133,7 @@ fun EditorScreen(
                     exitDescription = exitDescription,
                     onBack = viewModel::closeEditingTarget,
                     onOpenGlobals = viewModel::openGlobals,
-                    onNewDraft = { viewModel.createDraft() },
+                    onTemplate = onOpenTemplate,
                     onOpenNavigation = onOpenNavigation,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -162,7 +171,7 @@ fun EditorScreen(
                         clipboard.setText(AnnotatedString(value))
                         scope.launch {
                             snackbarHostState.showSnackbar(
-                                message = "Copied",
+                                message = copiedLabel,
                                 duration = SnackbarDuration.Short,
                             )
                         }
@@ -195,7 +204,7 @@ private fun EditorTopBar(
     exitDescription: String,
     onBack: () -> Unit,
     onOpenGlobals: () -> Unit,
-    onNewDraft: () -> Unit,
+    onTemplate: () -> Unit,
     onOpenNavigation: (() -> Unit)? = null,
 ) {
     TopAppBar(
@@ -217,24 +226,22 @@ private fun EditorTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Menu,
-                        contentDescription = "Open navigation",
+                        contentDescription = stringResource(R.string.open_navigation),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         },
         actions = {
-            TextButton(
-                onClick = onNewDraft,
-                modifier = Modifier.testTag("new-draft"),
+            IconButton(
+                onClick = onTemplate,
+                modifier = Modifier.testTag("open-templates"),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Bolt,
-                    contentDescription = null,
-                    modifier = Modifier.size(NumeraDimens.iconSmall),
+                    imageVector = Icons.Filled.GridView,
+                    contentDescription = stringResource(R.string.new_from_template),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.width(NumeraDimens.spacingInlineTight))
-                Text("New draft")
             }
 
             if (showExit) {
@@ -255,7 +262,7 @@ private fun EditorTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Functions,
-                        contentDescription = "Global variables",
+                        contentDescription = stringResource(R.string.global_variables),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

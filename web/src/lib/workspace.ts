@@ -104,68 +104,31 @@ export interface WorkspaceState {
 export type WorkspaceListener = (state: WorkspaceState) => void;
 
 const DEFAULT_GLOBALS = `# Globals — shared across all files in this workspace.
-# Variables and functions defined here are referenced as \`global.<name>\`.
-
-tax_rate = 13%
-vat_rate = 0.2
-
-# Cross-file references work via \`file("name")\`. Try them in any file:
-#   profit = file("daily")
 `;
 
-// `folderId`/`order` are placeholders here: the constructor derives the
-// "daily" folder from the `daily/2026-09-07.numr` path prefix and
-// normalizes every scope to sequential integer orders.
+// A single first-run example. One `Quick Start` file is seeded on a brand-new
+// install; after that the persisted workspace (including an intentionally
+// empty one) is the source of truth. `folderId`/`order` are placeholders — the
+// constructor normalizes every scope to sequential integer orders.
 const DEFAULT_FILES: WorkspaceFile[] = [
   {
-    id: 'budget',
-    path: 'budget-2026.numr',
-    displayName: 'Budget 2026',
-    pinned: true,
-    folderId: null,
-    order: 0,
-    content: `# September 2026 budget
-# Globals live in globals.numr and are referenced as \`global.<name>\`.
-
-monthly_income = $6,500
-tax_rate       = 22%
-rent           = $1,800
-savings        = monthly_income * (1 - tax_rate) - rent
-
-vat_total      = (rent + savings) * global.vat_rate
-take_home      = monthly_income * (1 - tax_rate) - rent
-
-# Cross-file reference: pulls the first export from daily.numr.
-daily_net      = file("daily")
-`,
-  },
-  {
-    id: 'daily',
-    path: 'daily/2026-09-07.numr',
-    displayName: 'Daily — Sep 7',
+    id: 'quick-start',
+    path: 'quick-start.numr',
+    displayName: 'Quick Start',
     pinned: false,
     folderId: null,
     order: 0,
-    content: `# Daily snapshot — Sep 7, 2026
-expense_breakfast = $12.50
-expense_lunch     = $18.20
-expense_coffee    = $4.80
+    content: `# Quick Start — Numera
+# Type arithmetic on any line; the result appears in the right gutter.
+# Assign a name to reuse a value later:
 
-total = expense_breakfast + expense_lunch + expense_coffee
-`,
-  },
-  {
-    id: 'cheatsheet',
-    path: 'unit-cheatsheet.numr',
-    displayName: 'Unit Cheatsheet',
-    pinned: false,
-    folderId: null,
-    order: 1,
-    content: `# Unit conversion cheatsheet
-meters   = 100
-kilometers = meters / 1000
-feet     = meters * 3.281
-miles    = feet / 5280
+price = 42
+quantity = 3
+subtotal = price * quantity
+
+# Percentages and units work too:
+tax = subtotal * 8.5%
+total = subtotal + tax
 `,
   },
 ];
@@ -364,7 +327,10 @@ export class WorkspaceStore {
 
     try {
       const snapshot = await loadWorkspace();
-      if (snapshot && snapshot.files.length > 0) {
+      if (snapshot) {
+        // A persisted snapshot is authoritative — even an empty one (the
+        // user deleted every file). Only a missing `meta` sentinel
+        // (`snapshot === null`) means first run and re-seeds the defaults.
         // v1 rows lack `folderId`/`order` — default folderId from the
         // path prefix and order to the array index, then derive folders
         // and normalize so legacy snapshots migrate cleanly.

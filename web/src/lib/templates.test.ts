@@ -103,19 +103,19 @@ check(
 check(
   'empty workspace instantiates <name>-1.numr',
   instantiateTemplate(mortgage, []),
-  { path: '房贷计算器-1.numr', displayName: '房贷计算器-1' },
+  { path: 'Mortgage Calculator-1.numr', displayName: 'Mortgage Calculator-1' },
 );
 
 check(
   'existing -1 path instantiates <name>-2.numr',
-  instantiateTemplate(mortgage, ['房贷计算器-1.numr']),
-  { path: '房贷计算器-2.numr', displayName: '房贷计算器-2' },
+  instantiateTemplate(mortgage, ['Mortgage Calculator-1.numr']),
+  { path: 'Mortgage Calculator-2.numr', displayName: 'Mortgage Calculator-2' },
 );
 
 check(
   'collisions skip to the first free index',
-  instantiateTemplate(mortgage, ['房贷计算器-1.numr', '房贷计算器-2.numr']),
-  { path: '房贷计算器-3.numr', displayName: '房贷计算器-3' },
+  instantiateTemplate(mortgage, ['Mortgage Calculator-1.numr', 'Mortgage Calculator-2.numr']),
+  { path: 'Mortgage Calculator-3.numr', displayName: 'Mortgage Calculator-3' },
 );
 
 // ---------------------------------------------------------------------------

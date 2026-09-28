@@ -19,7 +19,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.HorizontalDivider
@@ -40,10 +41,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jvcon.numera.R
 import com.jvcon.numera.ui.theme.NumeraDimens
 import com.jvcon.numera.ui.theme.NumeraElevation
 import com.jvcon.numera.workspace.WorkspaceFile
@@ -57,12 +60,23 @@ import com.jvcon.numera.workspace.WorkspaceFile
  * commands; `globals` and `draft` are non-list editing targets and never appear
  * as Command results.
  */
+/** A Command result of kind `command` (not a file). */
+private data class CommandAction(
+    val id: String,
+    val label: String,
+    val detail: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+)
+
 @Composable
 fun CommandOverlay(
     files: List<WorkspaceFile>,
+    theme: String,
     onSelectFile: (String) -> Unit,
     onNewFile: () -> Unit,
-    onNewDraft: () -> Unit,
+    onToggleTheme: () -> Unit,
+    onFromTemplate: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -78,9 +92,34 @@ fun CommandOverlay(
                 it.displayName.lowercase().contains(q) ||
                 it.path.lowercase().contains(q)
         }
-    val commands: List<Pair<String, () -> Unit>> = buildList {
-        if (q.isEmpty() || "new file".contains(q)) add("New file" to onNewFile)
-        if (q.isEmpty() || "new draft".contains(q)) add("New draft" to onNewDraft)
+    val newFileLabel = stringResource(R.string.new_file)
+    val newFileDetail = stringResource(R.string.command_new_file_detail)
+    val themeLabel = stringResource(R.string.command_toggle_theme)
+    val themeDetail = stringResource(R.string.command_current_theme, theme)
+    val fromTemplateLabel = stringResource(R.string.command_from_template)
+    val fromTemplateDetail = stringResource(R.string.command_from_template_detail)
+    val commands: List<CommandAction> = buildList {
+        if (q.isEmpty() || newFileLabel.lowercase().contains(q) || newFileDetail.lowercase().contains(q)) {
+            add(CommandAction("new-file", newFileLabel, newFileDetail, Icons.Filled.Add, onNewFile))
+        }
+        if (q.isEmpty() || themeLabel.lowercase().contains(q) || themeDetail.lowercase().contains(q)) {
+            add(CommandAction("toggle-theme", themeLabel, themeDetail, Icons.Filled.DarkMode, onToggleTheme))
+        }
+        if (
+            q.isEmpty() ||
+            fromTemplateLabel.lowercase().contains(q) ||
+            fromTemplateDetail.lowercase().contains(q)
+        ) {
+            add(
+                CommandAction(
+                    id = "from-template",
+                    label = fromTemplateLabel,
+                    detail = fromTemplateDetail,
+                    icon = Icons.Filled.GridView,
+                    onClick = onFromTemplate,
+                ),
+            )
+        }
     }
 
     Box(
@@ -121,7 +160,7 @@ fun CommandOverlay(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    placeholder = { Text("Command") },
+                    placeholder = { Text(stringResource(R.string.command)) },
                     leadingIcon = {
                         Icon(Icons.Filled.Search, contentDescription = null)
                     },
@@ -139,7 +178,7 @@ fun CommandOverlay(
 
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     if (matchingFiles.isNotEmpty()) {
-                        item { CommandGroupLabel("Files") }
+                        item { CommandGroupLabel(stringResource(R.string.command_group_files)) }
                         items(matchingFiles, key = { it.id }) { file ->
                             CommandRow(
                                 label = file.displayName,
@@ -151,18 +190,14 @@ fun CommandOverlay(
                         }
                     }
                     if (commands.isNotEmpty()) {
-                        item { CommandGroupLabel("Commands") }
-                        items(commands) { (label, action) ->
+                        item { CommandGroupLabel(stringResource(R.string.command_group_commands)) }
+                        items(commands) { command ->
                             CommandRow(
-                                label = label,
-                                detail = null,
-                                tag = "command-action-${label.lowercase().replace(' ', '-')}",
-                                icon = if (label == "New draft") {
-                                    Icons.Filled.Bolt
-                                } else {
-                                    Icons.Filled.Add
-                                },
-                                onClick = action,
+                                label = command.label,
+                                detail = command.detail,
+                                tag = "command-action-${command.id}",
+                                icon = command.icon,
+                                onClick = command.onClick,
                             )
                         }
                     }

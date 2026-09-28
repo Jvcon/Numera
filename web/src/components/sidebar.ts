@@ -1,5 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.sidebar;
 
 interface NumeraFile {
   id: string;
@@ -816,7 +819,7 @@ export class NumeraSidebar extends LitElement {
           class="drag-handle"
           slot="start"
           aria-hidden="true"
-          title="Drag to reorder"
+          title=${S.dragToReorder}
           @pointerdown=${(event: PointerEvent) =>
             this.handleDragPointerDown(event, file)}
         >${ICONS.file}</md-icon>
@@ -826,8 +829,8 @@ export class NumeraSidebar extends LitElement {
             ? html`
                 <md-icon-button
                   class="pin-button"
-                  aria-label="Unpin file"
-                  title="Unpin"
+                  aria-label=${S.unpinFile}
+                  title=${S.unpin}
                   @click=${(event: Event) => {
                     event.stopPropagation();
                     this.dispatchPin(file.id);
@@ -840,8 +843,8 @@ export class NumeraSidebar extends LitElement {
           <span class="overflow-anchor">
             <md-icon-button
               id=${`file-menu-btn-${file.id}`}
-              aria-label="File actions"
-              title="More actions"
+              aria-label=${S.fileActions}
+              title=${S.moreActions}
               @click=${(event: Event) => {
                 event.stopPropagation();
                 this.openMenu(`file-menu-${file.id}`);
@@ -862,7 +865,7 @@ export class NumeraSidebar extends LitElement {
                   this.openRenameDialog({ id: file.id, name: file.displayName, kind: 'file' });
                 }}
               >
-                <div slot="headline">Rename</div>
+                <div slot="headline">${S.rename}</div>
               </md-menu-item>
               <md-menu-item
                 @click=${(event: Event) => {
@@ -870,7 +873,7 @@ export class NumeraSidebar extends LitElement {
                   this.openMoveDialog(file);
                 }}
               >
-                <div slot="headline">Move to folder</div>
+                <div slot="headline">${S.moveToFolder}</div>
               </md-menu-item>
               <md-menu-item
                 @click=${(event: Event) => {
@@ -878,7 +881,7 @@ export class NumeraSidebar extends LitElement {
                   this.dispatchExport(file.id);
                 }}
               >
-                <div slot="headline">Export</div>
+                <div slot="headline">${S.export}</div>
               </md-menu-item>
               <md-menu-item
                 @click=${(event: Event) => {
@@ -886,7 +889,7 @@ export class NumeraSidebar extends LitElement {
                   this.dispatchPin(file.id);
                 }}
               >
-                <div slot="headline">${file.pinned ? 'Unpin' : 'Pin'}</div>
+                <div slot="headline">${file.pinned ? S.unpin : S.pin}</div>
               </md-menu-item>
               <md-menu-item
                 @click=${(event: Event) => {
@@ -894,7 +897,7 @@ export class NumeraSidebar extends LitElement {
                   this.openDeleteDialog({ id: file.id, name: file.displayName, kind: 'file' });
                 }}
               >
-                <div slot="headline">Delete</div>
+                <div slot="headline">${S.delete}</div>
               </md-menu-item>
             </md-menu>
           </span>
@@ -927,8 +930,8 @@ export class NumeraSidebar extends LitElement {
             ? html`
                 <md-icon-button
                   class="pin-button"
-                  aria-label="Unpin folder"
-                  title="Unpin"
+                  aria-label=${S.unpinFolder}
+                  title=${S.unpin}
                   @click=${(event: Event) => {
                     event.stopPropagation();
                     this.dispatchFolderPin(folder.id);
@@ -941,8 +944,8 @@ export class NumeraSidebar extends LitElement {
           <span class="overflow-anchor">
             <md-icon-button
               id=${`folder-menu-btn-${folder.id}`}
-              aria-label="Folder actions"
-              title="More actions"
+              aria-label=${S.folderActions}
+              title=${S.moreActions}
               @click=${(event: Event) => {
                 event.stopPropagation();
                 this.openMenu(`folder-menu-${folder.id}`);
@@ -963,7 +966,7 @@ export class NumeraSidebar extends LitElement {
                   this.openRenameDialog({ id: folder.id, name: folder.name, kind: 'folder' });
                 }}
               >
-                <div slot="headline">Rename</div>
+                <div slot="headline">${S.rename}</div>
               </md-menu-item>
               <md-menu-item
                 @click=${(event: Event) => {
@@ -971,7 +974,7 @@ export class NumeraSidebar extends LitElement {
                   this.dispatchFolderPin(folder.id);
                 }}
               >
-                <div slot="headline">${folder.pinned ? 'Unpin' : 'Pin'}</div>
+                <div slot="headline">${folder.pinned ? S.unpin : S.pin}</div>
               </md-menu-item>
               <md-menu-item
                 @click=${(event: Event) => {
@@ -979,7 +982,7 @@ export class NumeraSidebar extends LitElement {
                   this.openDeleteDialog({ id: folder.id, name: folder.name, kind: 'folder' });
                 }}
               >
-                <div slot="headline">Delete</div>
+                <div slot="headline">${S.delete}</div>
               </md-menu-item>
             </md-menu>
           </span>
@@ -991,18 +994,18 @@ export class NumeraSidebar extends LitElement {
   private renderRenameDialog() {
     return html`
       <md-dialog ?open=${this.renameOpen} @closed=${this.closeRenameDialog}>
-        <div slot="headline">${this.renameTarget?.kind === 'folder' ? 'Rename folder' : 'Rename file'}</div>
+        <div slot="headline">${this.renameTarget?.kind === 'folder' ? S.renameFolder : S.renameFile}</div>
         <div slot="content">
           <md-filled-text-field
             id="rename-input"
-            label="Name"
+            label=${S.name}
             .value=${this.renameTarget?.name ?? ''}
             @keydown=${this.handleRenameKeydown}
           ></md-filled-text-field>
         </div>
         <div slot="actions">
-          <md-text-button @click=${this.closeRenameDialog}>Cancel</md-text-button>
-          <md-text-button @click=${this.confirmRename}>Rename</md-text-button>
+          <md-text-button @click=${this.closeRenameDialog}>${S.cancel}</md-text-button>
+          <md-text-button @click=${this.confirmRename}>${S.rename}</md-text-button>
         </div>
       </md-dialog>
     `;
@@ -1011,19 +1014,19 @@ export class NumeraSidebar extends LitElement {
   private renderCreateFolderDialog() {
     return html`
       <md-dialog ?open=${this.createFolderOpen} @closed=${this.closeCreateFolderDialog}>
-        <div slot="headline">New folder</div>
+        <div slot="headline">${S.newFolder}</div>
         <div slot="content">
           <md-filled-text-field
             id="create-folder-input"
-            label="Folder name"
+            label=${S.folderName}
             .value=${this.createFolderName}
             @input=${this.handleCreateFolderInput}
             @keydown=${this.handleCreateFolderKeydown}
           ></md-filled-text-field>
         </div>
         <div slot="actions">
-          <md-text-button @click=${this.closeCreateFolderDialog}>Cancel</md-text-button>
-          <md-text-button @click=${this.confirmCreateFolder}>Create</md-text-button>
+          <md-text-button @click=${this.closeCreateFolderDialog}>${S.cancel}</md-text-button>
+          <md-text-button @click=${this.confirmCreateFolder}>${S.create}</md-text-button>
         </div>
       </md-dialog>
     `;
@@ -1033,15 +1036,15 @@ export class NumeraSidebar extends LitElement {
     const target = this.deleteTarget;
     return html`
       <md-dialog ?open=${this.deleteOpen} @closed=${this.closeDeleteDialog}>
-        <div slot="headline">Delete ${target?.kind === 'folder' ? 'folder' : 'file'}</div>
+        <div slot="headline">${target?.kind === 'folder' ? S.deleteFolder : S.deleteFile}</div>
         <div slot="content">
           ${target?.kind === 'folder'
-            ? html`Are you sure you want to delete “${target.name}”? Its files will be moved to the root.`
-            : html`Are you sure you want to delete “${target?.name}”?`}
+            ? html`${S.deleteFolderConfirm(target.name)}`
+            : html`${S.deleteFileConfirm(target?.name ?? '')}`}
         </div>
         <div slot="actions">
-          <md-text-button @click=${this.closeDeleteDialog}>Cancel</md-text-button>
-          <md-text-button @click=${this.confirmDelete}>Delete</md-text-button>
+          <md-text-button @click=${this.closeDeleteDialog}>${S.cancel}</md-text-button>
+          <md-text-button @click=${this.confirmDelete}>${S.delete}</md-text-button>
         </div>
       </md-dialog>
     `;
@@ -1054,12 +1057,12 @@ export class NumeraSidebar extends LitElement {
     );
     return html`
       <md-dialog ?open=${this.moveOpen} @closed=${this.closeMoveDialog}>
-        <div slot="headline">Move to folder</div>
+        <div slot="headline">${S.moveToFolder}</div>
         <div slot="content">
           <md-list class="move-dialog-list">
             <md-list-item type="button" @click=${() => this.moveFileTo(null)}>
               <md-icon slot="start">${ICONS.file}</md-icon>
-              <div slot="headline">No folder</div>
+              <div slot="headline">${S.noFolder}</div>
               ${currentFolderId === null ? html`<md-icon slot="end">${ICONS.check}</md-icon>` : null}
             </md-list-item>
             ${sortedFolders.map(
@@ -1073,12 +1076,12 @@ export class NumeraSidebar extends LitElement {
             )}
             <md-list-item type="button" @click=${this.openCreateFolderFromMove}>
               <md-icon slot="start">${ICONS.newFolder}</md-icon>
-              <div slot="headline">New folder…</div>
+              <div slot="headline">${S.newFolderEllipsis}</div>
             </md-list-item>
           </md-list>
         </div>
         <div slot="actions">
-          <md-text-button @click=${this.closeMoveDialog}>Cancel</md-text-button>
+          <md-text-button @click=${this.closeMoveDialog}>${S.cancel}</md-text-button>
         </div>
       </md-dialog>
     `;
@@ -1092,7 +1095,7 @@ export class NumeraSidebar extends LitElement {
         ? html`
             <div class="drop-to-root">
               <md-icon>${ICONS.upArrow}</md-icon>
-              <span>Move to root</span>
+              <span>${S.moveToRoot}</span>
             </div>
           `
         : null}
@@ -1100,32 +1103,32 @@ export class NumeraSidebar extends LitElement {
         <div class="header-start">
           <md-icon-button
             class="collapse-button"
-            aria-label="Toggle sidebar"
-            title="Toggle sidebar"
+            aria-label=${S.collapseToggle}
+            title=${S.collapseToggle}
             @click=${this.dispatchCollapseToggle}
           >
             <md-icon>${ICONS.menu}</md-icon>
           </md-icon-button>
-          <div class="brand">Numera</div>
+          <div class="brand">${S.brand}</div>
         </div>
         <div class="header-actions">
           <md-icon-button
-            aria-label="New folder"
-            title="New folder"
+            aria-label=${S.newFolder}
+            title=${S.newFolder}
             @click=${() => this.openCreateFolderDialog()}
           >
             <md-icon>${ICONS.newFolder}</md-icon>
           </md-icon-button>
           <md-icon-button
-            aria-label="Settings"
-            title="Settings"
+            aria-label=${S.settings}
+            title=${S.settings}
             @click=${this.dispatchSettingsOpen}
           >
             <md-icon>${ICONS.settings}</md-icon>
           </md-icon-button>
           <md-icon-button
-            aria-label="Toggle theme"
-            title="Toggle theme"
+            aria-label=${S.toggleTheme}
+            title=${S.toggleTheme}
             @click=${this.dispatchThemeToggle}
           >
             <md-icon>${ICONS.theme}</md-icon>
@@ -1137,10 +1140,8 @@ export class NumeraSidebar extends LitElement {
         ${isEmpty
           ? html`
               <div class="empty-state">
-                <div class="empty-state-title">No files yet</div>
-                <div class="empty-state-body">
-                  Your .numr files will appear here once your workspace is connected.
-                </div>
+                <div class="empty-state-title">${S.emptyTitle}</div>
+                <div class="empty-state-body">${S.emptyBody}</div>
               </div>
             `
           : this.scopeItems(null).map((item) =>

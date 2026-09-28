@@ -388,11 +388,12 @@ glyph, drawn as an inline SVG path.)
 |---|---|---|
 | `numera-app` | `app.ts` | Root shell; wires keyboard bridge |
 | `numera-app-shell` | `components/app-shell.ts` | Layout grid + owns the `WorkspaceStore`; wires all cross-component events |
-| `numera-top-bar` | `components/top-bar.ts` | App bar: hamburger + title + actions (globals / settings / theme); renders "Globals" title + a trailing Close (X) for the globals editing target |
-| `numera-sidebar` | `components/sidebar.ts` | File list with selection + "new file" button |
+| `numera-top-bar` | `components/top-bar.ts` | App bar: hamburger + title + actions (template / globals); renders "Globals" title + a trailing Close (X) for the globals editing target |
+| `numera-sidebar` | `components/sidebar.ts` | File list with selection; header actions (new folder / settings / theme) |
 | `numera-editor` | `components/editor-area.ts` | CodeMirror 6 editor; renders active file OR the globals document; per-line results/errors as inline decorations; WASM-backed live evaluation |
-| `numera-fab` | `components/fab.ts` | Speed-dial FAB (new file / new draft / command) |
+| `numera-fab` | `components/fab.ts` | Speed-dial FAB (new file / new draft / command / template) |
 | `numera-command` | `components/command.ts` | Ctrl/Cmd+K overlay for file switch + commands |
+| `numera-template-chooser` | `components/template-chooser.ts` | Modal listing built-in scenario templates |
 | `numera-snackbar` | `components/snackbar.ts` | Transient feedback (`show(message)`) |
 | `numera-status-bar` | `components/status-bar.ts` | Mode indicator + command hint |
 | `numera-dev-overlay` | `components/dev-overlay.ts` | Keyboard-bridge debug log (dev only) |
@@ -404,10 +405,10 @@ glyph, drawn as an inline SVG path.)
 > below are the web's visual rendering of them, not the contract.
 
 **FAB speed-dial.** A single FAB (primary-container, 56px, bottom-end)
-expands into three mini actions over a 0.32 scrim: **New file**
+expands into four mini actions over a 0.32 scrim: **New file**
 (`fab-new-file`), **New draft** (`fab-new-draft`), **Command**
-(`fab-command`). Escape or scrim tap dismisses. The plus icon rotates 45°
-when open.
+(`fab-command`), **Template** (`fab-template`). Escape or scrim tap
+dismisses. The plus icon rotates 45° when open.
 
 **Globals editor.** The top-bar "global" button (`global-open`) switches
 the single editor's editing target into the `globals` document: the title

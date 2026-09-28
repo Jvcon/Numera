@@ -32,11 +32,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import com.jvcon.numera.R
 import com.jvcon.numera.engine.LineOutcome
 import com.jvcon.numera.ui.theme.NumeraDimens
 import kotlin.math.roundToInt
@@ -227,7 +229,7 @@ private fun ErrorCell(
         )
         Spacer(Modifier.width(NumeraDimens.space1))
         Text(
-            text = "Err",
+            text = stringResource(R.string.error_short),
             style = style,
             maxLines = 1,
             softWrap = false,
@@ -235,7 +237,7 @@ private fun ErrorCell(
         Spacer(Modifier.width(NumeraDimens.space1))
         Icon(
             imageVector = Icons.Outlined.Info,
-            contentDescription = "Show error",
+            contentDescription = stringResource(R.string.show_error),
             tint = style.color,
             modifier = Modifier.size(NumeraDimens.iconSmall),
         )

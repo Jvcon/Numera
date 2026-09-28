@@ -1,6 +1,9 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { ThemeSetting } from '../lib/theme';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.command;
 
 /**
  * Command — a keyboard-first overlay for switching files and running commands
@@ -226,20 +229,20 @@ export class NumeraCommand extends LitElement {
     return [
       {
         id: 'new-file',
-        label: 'New file',
-        detail: 'Create a new .numr file',
+        label: S.newFile,
+        detail: S.newFileDetail,
         kind: 'command',
       },
       {
         id: 'toggle-theme',
-        label: 'Toggle theme',
-        detail: `Current theme: ${this.theme}`,
+        label: S.toggleTheme,
+        detail: S.toggleThemeDetail(this.theme),
         kind: 'command',
       },
       {
         id: 'from-template',
-        label: '从模板新建',
-        detail: '从场景模板创建新文件',
+        label: S.fromTemplate,
+        detail: S.fromTemplateDetail,
         kind: 'command',
       },
     ];
@@ -403,13 +406,13 @@ export class NumeraCommand extends LitElement {
 
     return html`
       <div class="backdrop" @mousedown=${this.handleBackdropClick}>
-        <div class="panel" role="dialog" aria-modal="true" aria-label="Command">
+        <div class="panel" role="dialog" aria-modal="true" aria-label=${S.label}>
           <div class="query-row">
             <md-icon>${ICONS.query}</md-icon>
             <input
               class="query-input"
               type="text"
-              placeholder="Command"
+              placeholder=${S.placeholder}
               .value=${this.query}
               @input=${this.handleInput}
               @keydown=${this.handleKeydown}
@@ -420,14 +423,14 @@ export class NumeraCommand extends LitElement {
           </div>
           <div class="results">
             ${items.length === 0
-              ? html`<div class="empty-hint">No matches for “${this.query}”</div>`
+              ? html`<div class="empty-hint">${S.noMatches(this.query)}</div>`
               : html`
                   ${fileItems.length > 0
-                    ? html`<div class="group-label">Files</div>`
+                    ? html`<div class="group-label">${S.groupFiles}</div>`
                     : nothing}
                   ${fileItems.map((item, i) => this.renderItem(item, i))}
                   ${commandItems.length > 0
-                    ? html`<div class="group-label">Commands</div>`
+                    ? html`<div class="group-label">${S.groupCommands}</div>`
                     : nothing}
                   ${commandItems.map((item, i) =>
                     this.renderItem(item, fileItems.length + i),

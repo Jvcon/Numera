@@ -6,6 +6,7 @@ import { WorkspaceStore } from '../lib/workspace';
 import { BUILT_IN_TEMPLATES } from '../lib/templates';
 import { initEngine } from '../lib/engine';
 import { runSync } from '../lib/sync';
+import { STRINGS } from '../lib/strings';
 import './top-bar';
 import './sidebar';
 import './editor-area';
@@ -254,18 +255,15 @@ export class NumeraAppShell extends LitElement {
           const result = await runSync(this.store, { url, folder, username, password });
           const { pushed, pulled, conflicts, deleted } = result;
           if (pushed === 0 && pulled === 0 && conflicts === 0 && deleted === 0) {
-            this.showSnackbar('Already up to date');
+            this.showSnackbar(STRINGS.appShell.alreadyUpToDate);
           } else {
-            let summary = `Synced: ${pushed} up, ${pulled} down`;
-            if (conflicts > 0) {
-              summary += `, ${conflicts} conflict${conflicts === 1 ? '' : 's'}`;
-            }
-            if (deleted > 0) summary += `, ${deleted} deleted`;
-            this.showSnackbar(summary);
+            this.showSnackbar(
+              STRINGS.appShell.synced(pushed, pulled, conflicts, deleted),
+            );
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          this.showSnackbar(`Sync failed: ${message}`);
+          this.showSnackbar(STRINGS.appShell.syncFailed(message));
         }
       })();
     }
@@ -308,7 +306,7 @@ export class NumeraAppShell extends LitElement {
     const next = `untitled-${this.sidebarFiles.length + 1}.numr`;
     this.store.createFile(next);
     this.sidebarOpen = false;
-    this.showSnackbar(`Created ${next}`);
+    this.showSnackbar(STRINGS.appShell.created(next));
   };
 
   private get isDesktop(): boolean {
@@ -417,7 +415,7 @@ export class NumeraAppShell extends LitElement {
 
   private handleResultCopied = (event: Event) => {
     const custom = event as CustomEvent<{ value: string }>;
-    this.showSnackbar(`Copied ${custom.detail.value}`);
+    this.showSnackbar(STRINGS.appShell.copied(custom.detail.value));
   };
 
   private handleThemeToggle = () => {
@@ -483,7 +481,7 @@ export class NumeraAppShell extends LitElement {
     if (template) {
       this.store.createFromTemplate(template);
       this.templateChooserOpen = false;
-      this.showSnackbar(`已创建 ${template.name}`);
+      this.showSnackbar(STRINGS.appShell.created(template.name));
     }
   };
 

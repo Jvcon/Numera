@@ -3,6 +3,9 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { generateMnemonic, applyMnemonic } from '../lib/encryption';
 import type { MdCheckbox } from '@material/web/checkbox/checkbox.js';
 import type { MdFilledTextField } from '@material/web/textfield/filled-text-field.js';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.encryption;
 
 /**
  * Self-contained end-to-end encryption wizard, shown as a modal dialog.
@@ -392,45 +395,42 @@ export class NumeraEncryptionSetup extends LitElement {
 
   private get heading(): string {
     if (this.completed) {
-      return this.mode === 'setup' ? 'Encryption is set up' : 'Encryption restored';
+      return this.mode === 'setup' ? S.headingSetUp : S.headingRestored;
     }
     if (this.mode === 'restore') {
-      return 'Restore from recovery phrase';
+      return S.headingRestore;
     }
     switch (this.step) {
       case 'explain':
       case 'generating':
-        return 'End-to-end encryption';
+        return S.headingEndToEnd;
       case 'show':
-        return 'Save your recovery phrase';
+        return S.headingSave;
       case 'confirm':
-        return 'Confirm your recovery phrase';
+        return S.headingConfirm;
     }
   }
 
   private renderExplain() {
     return html`
       <p class="body">
-        Encryption is optional. When it's on, each file is encrypted on this device
-        before it's uploaded, so the server never sees the plaintext.
+        ${S.explain1}
       </p>
       <p class="body">
-        You'll be given a 12-word recovery phrase. Write it down and keep it safe —
-        if you lose it, there is no way to recover your encrypted files.
+        ${S.explain2}
       </p>
       ${this.flowError ? html`<p class="error-text">${this.flowError}</p>` : ''}
     `;
   }
 
   private renderGenerating() {
-    return html`<p class="body">Creating your encryption key…</p>`;
+    return html`<p class="body">${S.generating}</p>`;
   }
 
   private renderShow() {
     return html`
       <p class="body">
-        Write down these 12 words, in order. This is the only way to restore your
-        encrypted files on a new device. It won't be shown again.
+        ${S.showBody}
       </p>
       <div class="word-grid">
         ${this.words.map(
@@ -445,23 +445,23 @@ export class NumeraEncryptionSetup extends LitElement {
       <div class="copy-row">
         <md-text-button @click=${this.copyMnemonic}>
           <md-icon slot="icon">${ICONS.copy}</md-icon>
-          ${this.copied ? 'Copied' : 'Copy'}
+          ${this.copied ? S.copied : S.copy}
         </md-text-button>
       </div>
       <label class="checkbox-row">
         <md-checkbox
-          aria-label="I have saved my recovery phrase"
+          aria-label=${S.savedPhrase}
           ?checked=${this.savedChecked}
           @change=${this.handleSavedChange}
         ></md-checkbox>
-        <span>I have saved my recovery phrase</span>
+        <span>${S.savedPhrase}</span>
       </label>
     `;
   }
 
   private renderConfirm() {
     return html`
-      <p class="body">Enter the requested words to confirm you saved the phrase.</p>
+      <p class="body">${S.confirmBody}</p>
       ${CONFIRM_WORDS.map((wordIndex, i) => {
         const entered = this.confirm[i] ?? '';
         const hasInput = entered.trim() !== '';
@@ -469,10 +469,10 @@ export class NumeraEncryptionSetup extends LitElement {
         return html`
           <md-filled-text-field
             class="confirm-field"
-            label="Word ${wordIndex}"
+            label=${S.word(wordIndex)}
             .value=${entered}
             ?error=${hasInput && !correct}
-            errorText=${hasInput && !correct ? "Doesn't match" : ''}
+            errorText=${hasInput && !correct ? S.doesntMatch : ''}
             @input=${(event: Event) => this.handleConfirmInput(event, i)}
           ></md-filled-text-field>
         `;
@@ -484,14 +484,13 @@ export class NumeraEncryptionSetup extends LitElement {
   private renderRestore() {
     return html`
       <p class="body">
-        Paste your 12-word recovery phrase to restore your encryption key on this
-        device.
+        ${S.restoreBody}
       </p>
       <md-filled-text-field
         class="restore-field"
         type="textarea"
         rows="4"
-        label="Recovery phrase"
+        label=${S.recoveryPhrase}
         .value=${this.restoreValue}
         ?error=${this.restoreError !== ''}
         errorText=${this.restoreError}
@@ -502,9 +501,7 @@ export class NumeraEncryptionSetup extends LitElement {
 
   private renderDone() {
     const body =
-      this.mode === 'setup'
-        ? 'Your files will be encrypted on this device before they sync. Keep your recovery phrase safe.'
-        : 'Your encryption key is restored. Encrypted files can now be opened on this device.';
+      this.mode === 'setup' ? S.doneSetup : S.doneRestore;
     return html`
       <div class="done">
         <span class="done-icon">${ICONS.check}</span>
@@ -530,17 +527,17 @@ export class NumeraEncryptionSetup extends LitElement {
 
   private renderActions() {
     if (this.completed) {
-      return html`<md-filled-button @click=${this.close}>Done</md-filled-button>`;
+      return html`<md-filled-button @click=${this.close}>${S.done}</md-filled-button>`;
     }
 
     if (this.mode === 'restore') {
       return html`
-        <md-text-button @click=${this.close}>Cancel</md-text-button>
+        <md-text-button @click=${this.close}>${S.cancel}</md-text-button>
         <md-filled-button
           ?disabled=${this.restoring || this.restoreValue.trim() === ''}
           @click=${this.doRestore}
         >
-          ${this.restoring ? 'Restoring…' : 'Restore'}
+          ${this.restoring ? S.restoring : S.restore}
         </md-filled-button>
       `;
     }
@@ -548,23 +545,23 @@ export class NumeraEncryptionSetup extends LitElement {
     switch (this.step) {
       case 'explain':
         return html`
-          <md-text-button @click=${this.close}>Cancel</md-text-button>
-          <md-filled-button @click=${this.startSetup}>Continue</md-filled-button>
+          <md-text-button @click=${this.close}>${S.cancel}</md-text-button>
+          <md-filled-button @click=${this.startSetup}>${S.continue}</md-filled-button>
         `;
       case 'generating':
-        return html`<md-text-button @click=${this.close}>Cancel</md-text-button>`;
+        return html`<md-text-button @click=${this.close}>${S.cancel}</md-text-button>`;
       case 'show':
         return html`
-          <md-text-button @click=${() => (this.step = 'explain')}>Back</md-text-button>
+          <md-text-button @click=${() => (this.step = 'explain')}>${S.back}</md-text-button>
           <md-filled-button ?disabled=${!this.savedChecked} @click=${() => (this.step = 'confirm')}>
-            Continue
+            ${S.continue}
           </md-filled-button>
         `;
       case 'confirm':
         return html`
-          <md-text-button @click=${() => (this.step = 'show')}>Back</md-text-button>
+          <md-text-button @click=${() => (this.step = 'show')}>${S.back}</md-text-button>
           <md-filled-button ?disabled=${!this.confirmComplete || this.persisting} @click=${this.finish}>
-            ${this.persisting ? 'Finishing…' : 'Finish'}
+            ${this.persisting ? S.finishing : S.finish}
           </md-filled-button>
         `;
     }
@@ -576,7 +573,7 @@ export class NumeraEncryptionSetup extends LitElement {
         <div class="panel" role="dialog" aria-modal="true" aria-label=${this.heading} tabindex="-1">
           <header class="panel-header">
             <h2 class="panel-title">${this.heading}</h2>
-            <md-icon-button aria-label="Close" @click=${this.close}>
+            <md-icon-button aria-label=${S.close} @click=${this.close}>
               <md-icon>${ICONS.close}</md-icon>
             </md-icon-button>
           </header>

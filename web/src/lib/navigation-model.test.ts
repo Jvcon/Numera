@@ -56,7 +56,7 @@ test('invariant: non-list targets exit with exit-editing-target and expose a tra
 });
 
 test('invariant: file target trailing actions have no exit', () => {
-  assert.deepEqual(trailingActions(contract, 'file'), ['new-draft', 'open-globals']);
+  assert.deepEqual(trailingActions(contract, 'file'), ['template', 'open-globals']);
 });
 
 test('back precedence: overlay beats drawer beats editing target beats root', () => {

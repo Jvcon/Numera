@@ -15,9 +15,12 @@ import { isEncryptionConfigured, resetEncryption } from '../lib/encryption';
 import { WebDavClient } from '../lib/webdav';
 import { runSync, type SyncResult } from '../lib/sync';
 import { getCachedRates, RATE_TTL_MS } from '../lib/exchange-rates';
+import { STRINGS } from '../lib/strings';
 import './encryption-setup';
 
 const APP_VERSION = '0.1.0';
+
+const S = STRINGS.settings;
 
 /** Two-level navigation: master list → detail sub-page. */
 type SettingsPage = 'home' | 'calculator' | 'data' | 'help' | 'about';
@@ -679,7 +682,7 @@ export class NumeraSettingsPage extends LitElement {
         return html`
           <span class="result">
             <md-icon>${ICONS.cloud}</md-icon>
-            <span>Fetching latest rates…</span>
+            <span>${S.fetchingRates}</span>
           </span>
         `;
       case 'ok':
@@ -690,7 +693,7 @@ export class NumeraSettingsPage extends LitElement {
               <span>${this.rateMessage}</span>
               ${this.rateFromCache
                 ? html`<span class="result-hint">
-                    Network unavailable — using the last cached rates.
+                    ${S.networkUnavailable}
                   </span>`
                 : nothing}
             </span>
@@ -707,7 +710,7 @@ export class NumeraSettingsPage extends LitElement {
         return html`
           <span class="result">
             <md-icon>${ICONS.cloud}</md-icon>
-            <span>Using built-in default rates.</span>
+            <span>${S.usingDefaultRates}</span>
           </span>
         `;
     }
@@ -715,10 +718,10 @@ export class NumeraSettingsPage extends LitElement {
 
   private renderRateTimestamp() {
     const cached = getCachedRates();
-    if (!cached) return 'Last refreshed: never';
+    if (!cached) return S.lastRefreshedNever;
     const when = new Date(cached.fetchedAt).toLocaleString();
     const stale = Date.now() - cached.fetchedAt > RATE_TTL_MS;
-    return `Last refreshed: ${when}${stale ? ' (stale)' : ''}`;
+    return S.lastRefreshed(when, stale);
   }
 
   private renderSyncSummary() {
@@ -731,13 +734,13 @@ export class NumeraSettingsPage extends LitElement {
         <md-icon>${hasConflicts ? ICONS.warning : ICONS.checkCircle}</md-icon>
         <span class="result-text">
           <span>
-            Uploaded ${pushed} · Downloaded ${pulled} ·
-            <span class="sync-conflict">Conflicts ${conflicts}</span> ·
-            Deleted ${deleted}
+            ${S.syncUploaded} ${pushed} · ${S.syncDownloaded} ${pulled} ·
+            <span class="sync-conflict">${S.syncConflicts} ${conflicts}</span> ·
+            ${S.syncDeleted} ${deleted}
           </span>
           ${hasConflicts
             ? html`<span class="result-hint">
-                Review conflict copies — saved as .conflict.numr files.
+                ${S.reviewConflicts}
               </span>`
             : nothing}
         </span>
@@ -751,7 +754,7 @@ export class NumeraSettingsPage extends LitElement {
         return html`
           <span class="result">
             <md-icon>${ICONS.cloud}</md-icon>
-            <span>${this.syncMessage || 'Syncing…'}</span>
+            <span>${this.syncMessage || S.syncing}</span>
           </span>
         `;
       case 'done':
@@ -767,14 +770,14 @@ export class NumeraSettingsPage extends LitElement {
         return html`
           <span class="result">
             <md-icon>${ICONS.info}</md-icon>
-            <span>Set a WebDAV URL above to sync.</span>
+            <span>${S.setWebdavUrl}</span>
           </span>
         `;
       default:
         return html`
           <span class="result">
             <md-icon>${ICONS.cloud}</md-icon>
-            <span>Sync this device with the WebDAV server.</span>
+            <span>${S.syncDescription}</span>
           </span>
         `;
     }
@@ -898,12 +901,12 @@ export class NumeraSettingsPage extends LitElement {
 
   private renderHome() {
     return html`
-      <section class="section" aria-label="Settings">
+      <section class="section" aria-label=${S.ariaLabel}>
         <div class="card">
-          ${this.renderNavRow(ICONS.calculate, 'Calculator', 'calculator')}
-          ${this.renderNavRow(ICONS.data_usage, 'Data & Sync', 'data')}
-          ${this.renderNavRow(ICONS.help, 'Help & Feedback', 'help')}
-          ${this.renderNavRow(ICONS.info, 'About', 'about')}
+          ${this.renderNavRow(ICONS.calculate, S.navCalculator, 'calculator')}
+          ${this.renderNavRow(ICONS.data_usage, S.navDataSync, 'data')}
+          ${this.renderNavRow(ICONS.help, S.navHelp, 'help')}
+          ${this.renderNavRow(ICONS.info, S.navAbout, 'about')}
         </div>
       </section>
     `;
@@ -914,16 +917,16 @@ export class NumeraSettingsPage extends LitElement {
 
     return html`
       <section class="section" aria-labelledby="calculator-title">
-        <h2 class="section-title" id="calculator-title">Calculator</h2>
+        <h2 class="section-title" id="calculator-title">${S.navCalculator}</h2>
 
-        <h3 class="group-title">Math</h3>
+        <h3 class="group-title">${S.groupMath}</h3>
         <div class="card">
           ${this.renderSwitchRow(
             ICONS.tune,
-            'Result precision',
-            'Limit displayed decimals in results',
+            S.resultPrecision,
+            S.limitDecimals,
             math.resultPrecisionEnabled,
-            'Result precision',
+            S.resultPrecision,
             this.handleResultPrecision,
           )}
           ${math.resultPrecisionEnabled
@@ -932,13 +935,13 @@ export class NumeraSettingsPage extends LitElement {
                   <div class="slider-head">
                     ${this.renderLeadingIcon(ICONS.straighten)}
                     <div class="row-text">
-                      <div class="row-title">Precision digits</div>
-                      <div class="row-hint">Limit displayed decimals in results</div>
+                      <div class="row-title">${S.precisionDigits}</div>
+                      <div class="row-hint">${S.limitDecimals}</div>
                     </div>
                     <div class="value-badge">${math.precisionDigits}</div>
                   </div>
                   <md-slider
-                    aria-label="Precision digits"
+                    aria-label=${S.precisionDigits}
                     min="0"
                     max="12"
                     step="1"
@@ -951,44 +954,44 @@ export class NumeraSettingsPage extends LitElement {
               `
             : nothing}
           <div class="field-row">
-            <md-filled-select label="Region" @change=${this.handleRegionChange}>
+            <md-filled-select label=${S.region} @change=${this.handleRegionChange}>
               <md-icon slot="leading-icon" class="leading-icon"
                 >${ICONS.public}</md-icon
               >
               <md-select-option value="system" ?selected=${math.region === 'system'}>
-                <div slot="headline">System default</div>
+                <div slot="headline">${S.systemDefault}</div>
               </md-select-option>
               <md-select-option value="en-US" ?selected=${math.region === 'en-US'}>
-                <div slot="headline">English (United States)</div>
+                <div slot="headline">${S.englishUS}</div>
               </md-select-option>
               <md-select-option value="zh-CN" ?selected=${math.region === 'zh-CN'}>
-                <div slot="headline">简体中文 (中国)</div>
+                <div slot="headline">${S.chineseSimplified}</div>
               </md-select-option>
             </md-filled-select>
           </div>
           ${this.renderSwitchRow(
             ICONS.space_bar,
-            'Show grouping separators',
-            'Format numbers like 12,345.58',
+            S.showGrouping,
+            S.showGroupingHint,
             math.showGroupingSeparators,
-            'Show grouping separators',
+            S.showGrouping,
             this.handleGroupingSeparators,
           )}
         </div>
 
-        <h3 class="group-title">Editor</h3>
+        <h3 class="group-title">${S.groupEditor}</h3>
         <div class="card">
           <div class="slider-block">
             <div class="slider-head">
               ${this.renderLeadingIcon(ICONS.format_size)}
               <div class="row-text">
-                <div class="row-title">Font size</div>
-                <div class="row-hint">Editor text size</div>
+                <div class="row-title">${S.fontSize}</div>
+                <div class="row-hint">${S.editorTextSize}</div>
               </div>
               <div class="value-badge">${editor.fontSize}px</div>
             </div>
             <md-slider
-              aria-label="Font size"
+              aria-label=${S.fontSize}
               min="10"
               max="24"
               step="1"
@@ -1000,10 +1003,10 @@ export class NumeraSettingsPage extends LitElement {
           </div>
           ${this.renderSwitchRow(
             ICONS.format_list_numbered,
-            'Show line numbers',
-            'Display line numbers in the editor',
+            S.showLineNumbers,
+            S.showLineNumbersHint,
             editor.showLineNumbers,
-            'Show line numbers',
+            S.showLineNumbers,
             this.handleLineNumbers,
           )}
         </div>
@@ -1014,11 +1017,11 @@ export class NumeraSettingsPage extends LitElement {
   private renderEncryptionState() {
     switch (this.encryptionStatus) {
       case 'configured':
-        return html`<span class="status-badge status-badge--ok">Encrypted</span>`;
+        return html`<span class="status-badge status-badge--ok">${S.encrypted}</span>`;
       case 'not-configured':
-        return html`<span class="status-badge">Not set up</span>`;
+        return html`<span class="status-badge">${S.notSetUp}</span>`;
       default:
-        return html`<span class="status-badge">Checking…</span>`;
+        return html`<span class="status-badge">${S.checking}</span>`;
     }
   }
 
@@ -1027,7 +1030,7 @@ export class NumeraSettingsPage extends LitElement {
       return html`
         <span class="result result--ok">
           <md-icon>${ICONS.checkCircle}</md-icon>
-          <span>Connected</span>
+          <span>${S.connected}</span>
         </span>
       `;
     }
@@ -1039,8 +1042,7 @@ export class NumeraSettingsPage extends LitElement {
             <span>${this.testError}</span>
             ${this.testNetworkish
               ? html`<span class="result-hint">
-                  A network or fetch error usually means the server hasn't enabled
-                  CORS (including the ETag header).
+                  ${S.corsHint}
                 </span>`
               : nothing}
           </span>
@@ -1057,16 +1059,16 @@ export class NumeraSettingsPage extends LitElement {
 
     return html`
       <section class="section" aria-labelledby="data-sync-title">
-        <h2 class="section-title" id="data-sync-title">Data &amp; Sync</h2>
+        <h2 class="section-title" id="data-sync-title">${S.navDataSync}</h2>
 
-        <h3 class="group-title">Encryption</h3>
+        <h3 class="group-title">${S.groupEncryption}</h3>
         <div class="card">
           <div class="row">
             ${this.renderLeadingIcon(ICONS.lock, configured)}
             <div class="row-text">
-              <div class="row-title">End-to-end encryption</div>
+              <div class="row-title">${S.endToEnd}</div>
               <div class="row-hint">
-                Files are encrypted on this device before they sync.
+                ${S.endToEndHint}
               </div>
             </div>
             ${this.renderEncryptionState()}
@@ -1075,10 +1077,10 @@ export class NumeraSettingsPage extends LitElement {
             ? html`
                 <div class="actions-row">
                   <md-filled-button @click=${() => this.openWizard('setup')}>
-                    Set up encryption
+                    ${S.setUpEncryption}
                   </md-filled-button>
                   <md-text-button @click=${() => this.openWizard('restore')}>
-                    Restore from mnemonic
+                    ${S.restoreFromMnemonic}
                   </md-text-button>
                 </div>
               `
@@ -1086,22 +1088,20 @@ export class NumeraSettingsPage extends LitElement {
           ${configured
             ? html`
                 <div class="note">
-                  Your recovery phrase is the only way to restore encrypted files on
-                  a new device.
+                  ${S.recoveryOnly}
                 </div>
                 ${this.resetConfirmOpen
                   ? html`
                       <div class="confirm-reset">
                         <p class="confirm-reset-text">
-                          This permanently removes encryption. Encrypted files become
-                          unreadable until you restore your mnemonic.
+                          ${S.resetWarning}
                         </p>
                         <div class="confirm-reset-actions">
                           <md-text-button @click=${() => (this.resetConfirmOpen = false)}>
-                            Cancel
+                            ${S.cancel}
                           </md-text-button>
                           <md-filled-button class="danger-button" @click=${this.handleResetEncryption}>
-                            Confirm reset
+                            ${S.confirmReset}
                           </md-filled-button>
                         </div>
                       </div>
@@ -1112,7 +1112,7 @@ export class NumeraSettingsPage extends LitElement {
                           class="reset-button"
                           @click=${() => (this.resetConfirmOpen = true)}
                         >
-                          Reset encryption
+                          ${S.resetEncryption}
                         </md-text-button>
                       </div>
                     `}
@@ -1120,29 +1120,29 @@ export class NumeraSettingsPage extends LitElement {
             : nothing}
         </div>
 
-        <h3 class="group-title">WebDAV sync</h3>
+        <h3 class="group-title">${S.groupWebdav}</h3>
         <div class="card">
-          <div class="note">Credentials are stored only on this device.</div>
+          <div class="note">${S.credentialsLocal}</div>
           <div class="form-stack">
             <md-filled-text-field
-              label="URL"
-              placeholder="https://dav.example.com/remote.php/dav"
+              label=${S.url}
+              placeholder=${S.urlPlaceholder}
               .value=${url}
               @input=${this.handleWebdavUrl}
             ></md-filled-text-field>
             <md-filled-text-field
-              label="Folder path"
-              placeholder="numera"
+              label=${S.folderPath}
+              placeholder=${S.folderPlaceholder}
               .value=${folder}
               @input=${this.handleWebdavFolder}
             ></md-filled-text-field>
             <md-filled-text-field
-              label="Username"
+              label=${S.username}
               .value=${username}
               @input=${this.handleWebdavUsername}
             ></md-filled-text-field>
             <md-filled-text-field
-              label="Password"
+              label=${S.password}
               type="password"
               .value=${password}
               @input=${this.handleWebdavPassword}
@@ -1153,7 +1153,7 @@ export class NumeraSettingsPage extends LitElement {
               ?disabled=${this.testStatus === 'testing'}
               @click=${this.handleTestConnection}
             >
-              ${this.testStatus === 'testing' ? 'Testing…' : 'Test connection'}
+              ${this.testStatus === 'testing' ? S.testing : S.testConnection}
             </md-filled-tonal-button>
             ${this.renderTestResult()}
           </div>
@@ -1162,7 +1162,7 @@ export class NumeraSettingsPage extends LitElement {
               ?disabled=${this.syncPhase === 'syncing'}
               @click=${this.handleSyncNow}
             >
-              ${this.syncPhase === 'syncing' ? 'Syncing…' : 'Sync now'}
+              ${this.syncPhase === 'syncing' ? S.syncing : S.syncNow}
             </md-filled-button>
             <div class="sync-status" role="status" aria-live="polite">
               ${this.renderSyncStatus()}
@@ -1170,18 +1170,17 @@ export class NumeraSettingsPage extends LitElement {
           </div>
         </div>
 
-        <h3 class="group-title">Exchange rates</h3>
+        <h3 class="group-title">${S.groupRates}</h3>
         <div class="card">
           <div class="note">
-            Rates come from open.er-api.com and are fetched only when you tap
-            Refresh. Currency results otherwise use cached or built-in rates.
+            ${S.ratesNote}
           </div>
           <div class="test-row">
             <md-filled-tonal-button
               ?disabled=${this.rateStatus === 'loading'}
               @click=${this.handleRefreshRates}
             >
-              ${this.rateStatus === 'loading' ? 'Refreshing…' : 'Refresh rates'}
+              ${this.rateStatus === 'loading' ? S.refreshing : S.refreshRates}
             </md-filled-tonal-button>
             <div class="sync-status" role="status" aria-live="polite">
               ${this.renderRateStatus()}
@@ -1196,17 +1195,17 @@ export class NumeraSettingsPage extends LitElement {
   private renderHelp() {
     return html`
       <section class="section" aria-labelledby="help-title">
-        <h2 class="section-title" id="help-title">Help &amp; feedback</h2>
+        <h2 class="section-title" id="help-title">${S.sectionHelp}</h2>
         <div class="card">
           <div class="row">
             ${this.renderLeadingIcon(ICONS.feedback)}
             <div class="row-text">
-              <div class="row-title">Send feedback</div>
+              <div class="row-title">${S.sendFeedback}</div>
               <div class="row-hint">
-                Share ideas or report an issue. A feedback entry point is coming soon.
+                ${S.feedbackHint}
               </div>
             </div>
-            <md-text-button disabled>Send feedback</md-text-button>
+            <md-text-button disabled>${S.sendFeedback}</md-text-button>
           </div>
         </div>
       </section>
@@ -1218,29 +1217,29 @@ export class NumeraSettingsPage extends LitElement {
       <section class="section" aria-labelledby="about-title">
         <div class="about-header">
           <img class="app-icon" src="/icon-192.svg" alt="Numera" />
-          <h2 class="about-title" id="about-title">Numera</h2>
+          <h2 class="about-title" id="about-title">${S.aboutTitle}</h2>
         </div>
         <div class="card">
           <div class="row">
             ${this.renderLeadingIcon(ICONS.info)}
             <div class="row-text">
-              <div class="row-title">Version</div>
+              <div class="row-title">${S.version}</div>
               <div class="row-hint">${APP_VERSION}</div>
             </div>
           </div>
           ${this.renderLinkRow(
             ICONS.privacy_tip,
-            'Privacy',
+            S.privacy,
             'https://github.com/Jvcon/Numera/blob/main/PRIVACY.md',
           )}
           ${this.renderLinkRow(
             ICONS.attribution,
-            'License',
+            S.license,
             'https://github.com/Jvcon/Numera/blob/main/LICENSE',
           )}
           ${this.renderLinkRow(
             ICONS.code,
-            'Source Code',
+            S.sourceCode,
             'https://github.com/Jvcon/Numera',
           )}
         </div>
@@ -1268,13 +1267,13 @@ export class NumeraSettingsPage extends LitElement {
       <header class="header">
         <md-icon-button
           class="back-button"
-          aria-label="Back"
-          title="Back"
+          aria-label=${S.back}
+          title=${S.back}
           @click=${this.handleBack}
         >
           <md-icon>${ICONS.back}</md-icon>
         </md-icon-button>
-        <h1 class="title">Settings</h1>
+        <h1 class="title">${S.title}</h1>
       </header>
 
       <div class="scroll">

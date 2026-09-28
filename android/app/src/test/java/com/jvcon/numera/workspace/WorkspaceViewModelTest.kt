@@ -42,24 +42,15 @@ class WorkspaceViewModelTest {
         val vm = newVm()
         val s = vm.state.value
 
-        assertEquals(3, s.files.size)
-        assertEquals(1, s.folders.size)
+        assertEquals(1, s.files.size)
+        assertEquals(0, s.folders.size)
 
-        val budget = s.files.first { it.id == "budget" }
-        assertTrue(budget.pinned)
-        assertEquals(0, budget.order)
+        val quickStart = s.files.single()
+        assertEquals("quick-start", quickStart.id)
+        assertFalse(quickStart.pinned)
+        assertEquals(0, quickStart.order)
 
-        val folder = s.folders.single()
-        assertEquals("daily", folder.name)
-
-        val daily = s.files.first { it.id == "daily" }
-        assertEquals(folder.id, daily.folderId)
-
-        val cheatsheet = s.files.first { it.id == "cheatsheet" }
-        assertEquals(2, cheatsheet.order)
-        assertEquals(1, folder.order)
-
-        assertEquals("budget", s.activeFileId)
+        assertEquals("quick-start", s.activeFileId)
         assertEquals(EditingTarget.FILE, s.editingTarget)
         assertEquals(EditorMode.STANDARD, s.mode)
         assertEquals(Annotations.EMPTY_ANNOTATIONS, s.annotations)
@@ -68,9 +59,7 @@ class WorkspaceViewModelTest {
         assertTrue(s.hydrating)
 
         // Root orders are contiguous after normalization.
-        assertEquals(listOf(0, 1, 2), rootOrders(vm))
-        // Files keep the workspace-array order (not display order).
-        assertEquals(listOf("budget", "daily", "cheatsheet"), s.files.map { it.id })
+        assertEquals(listOf(0), rootOrders(vm))
     }
 
     // -------------------------------------------------------------------------
@@ -80,20 +69,22 @@ class WorkspaceViewModelTest {
     @Test
     fun togglePinMovesWithinGroupAndKeepsOrdersContiguous() {
         val vm = newVm()
+        val extra = vm.createFile("extra.numr")
+        assertEquals(1, extra.order)
 
-        vm.togglePin("cheatsheet")
-        val pinned = vm.state.value.files.first { it.id == "cheatsheet" }
+        vm.togglePin(extra.id)
+        val pinned = vm.state.value.files.first { it.id == extra.id }
         assertTrue(pinned.pinned)
         assertEquals(0, pinned.order)
-        assertEquals(1, vm.state.value.files.first { it.id == "budget" }.order)
-        assertEquals(listOf(0, 1, 2), rootOrders(vm))
+        assertEquals(1, vm.state.value.files.first { it.id == "quick-start" }.order)
+        assertEquals(listOf(0, 1), rootOrders(vm))
 
-        vm.togglePin("cheatsheet")
-        val unpinned = vm.state.value.files.first { it.id == "cheatsheet" }
+        vm.togglePin(extra.id)
+        val unpinned = vm.state.value.files.first { it.id == extra.id }
         assertFalse(unpinned.pinned)
-        assertEquals(2, unpinned.order)
-        assertEquals(0, vm.state.value.files.first { it.id == "budget" }.order)
-        assertEquals(listOf(0, 1, 2), rootOrders(vm))
+        assertEquals(1, unpinned.order)
+        assertEquals(0, vm.state.value.files.first { it.id == "quick-start" }.order)
+        assertEquals(listOf(0, 1), rootOrders(vm))
     }
 
     // -------------------------------------------------------------------------
@@ -106,8 +97,8 @@ class WorkspaceViewModelTest {
 
         val created = vm.createFolder("archive")
         assertEquals("archive", created.name)
-        assertEquals(3, created.order) // end of root non-pinned group
-        assertEquals(2, vm.state.value.folders.size)
+        assertEquals(1, created.order) // end of root non-pinned group
+        assertEquals(1, vm.state.value.folders.size)
 
         assertFailsWith<IllegalArgumentException> { vm.createFolder("") }
         assertFailsWith<IllegalArgumentException> { vm.createFolder("a/b") }
@@ -116,12 +107,14 @@ class WorkspaceViewModelTest {
         assertEquals("Archive", vm.state.value.folders.first { it.id == created.id }.name)
 
         // deleteFolder re-homes its files to root with folderId=null + basename.
-        val dailyFolder = vm.state.value.folders.first { it.name == "daily" }
-        vm.deleteFolder(dailyFolder.id)
-        val daily = vm.state.value.files.first { it.id == "daily" }
-        assertNull(daily.folderId)
-        assertEquals("2026-09-07.numr", daily.path)
-        assertTrue(vm.state.value.folders.none { it.id == dailyFolder.id })
+        val work = vm.createFolder("work")
+        val plan = vm.createFile("work/plan.numr")
+        assertEquals(work.id, plan.folderId)
+        vm.deleteFolder(work.id)
+        val moved = vm.state.value.files.first { it.id == plan.id }
+        assertNull(moved.folderId)
+        assertEquals("plan.numr", moved.path)
+        assertTrue(vm.state.value.folders.none { it.id == work.id })
 
         val archive = vm.state.value.folders.first { it.name == "Archive" }
         assertFalse(archive.collapsed)
@@ -139,7 +132,7 @@ class WorkspaceViewModelTest {
 
         val notes = vm.createFile("notes.numr")
         assertFalse(notes.pinned)
-        assertEquals(3, notes.order) // end of root non-pinned group
+        assertEquals(1, notes.order) // end of root non-pinned group
         assertEquals(notes.id, vm.state.value.activeFileId)
 
         val plan = vm.createFile("work/plan.numr")
@@ -154,7 +147,7 @@ class WorkspaceViewModelTest {
         assertEquals(plan.id, vm.state.value.activeFileId)
         vm.deleteFile(plan.id)
         assertTrue(vm.state.value.files.none { it.id == plan.id })
-        assertEquals("budget", vm.state.value.activeFileId)
+        assertEquals("quick-start", vm.state.value.activeFileId)
     }
 
     // -------------------------------------------------------------------------
@@ -170,10 +163,10 @@ class WorkspaceViewModelTest {
         assertEquals("draft-1", draft1.id)
         assertEquals("Draft 1", draft1.displayName)
         assertTrue(vm.state.value.files.any { it.id == "draft-1" })
-        assertEquals(4, vm.state.value.files.size)
+        assertEquals(2, vm.state.value.files.size)
 
         val snapshot = vm.toSnapshot()
-        assertEquals(3, snapshot.files.size)
+        assertEquals(1, snapshot.files.size)
         assertTrue(snapshot.files.none { it.id == "draft-1" })
 
         val draft2 = vm.createDraft()
@@ -199,9 +192,9 @@ class WorkspaceViewModelTest {
         assertEquals(EditingTarget.FILE, vm.state.value.editingTarget)
 
         vm.openGlobals()
-        vm.selectFile("cheatsheet")
+        vm.selectFile("quick-start")
         assertEquals(EditingTarget.FILE, vm.state.value.editingTarget)
-        assertEquals("cheatsheet", vm.state.value.activeFileId)
+        assertEquals("quick-start", vm.state.value.activeFileId)
     }
 
     // -------------------------------------------------------------------------
@@ -231,13 +224,8 @@ class WorkspaceViewModelTest {
         val active = s.files.first { it.id == s.activeFileId }
         assertEquals(annotated, active.content)
         // Known aliases for every workspace file (first-wins).
-        assertEquals(annotated, docs["budget-2026.numr"])
-        assertEquals(annotated, docs["budget-2026"])
-        val daily = s.files.first { it.id == "daily" }
-        assertEquals(daily.content, docs["2026-09-07.numr"])
-        assertEquals(daily.content, docs["Daily — Sep 7"])
-        val cheatsheet = s.files.first { it.id == "cheatsheet" }
-        assertEquals(cheatsheet.content, docs["unit-cheatsheet"])
+        assertEquals(annotated, docs["quick-start.numr"])
+        assertEquals(annotated, docs["quick-start"])
     }
 
     // -------------------------------------------------------------------------
@@ -305,6 +293,35 @@ class WorkspaceViewModelTest {
                 "Daily — Sep 7",
             ),
             collectFileAliases(file),
+        )
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. Templates
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun createFromTemplatePicksNonCollidingPathAndSelects() {
+        val vm = newVm()
+        val template = BUILT_IN_TEMPLATES.single()
+
+        val first = vm.createFromTemplate(template)
+        assertEquals("${template.name}-1.numr", first.path)
+        assertEquals(template.content, first.content)
+        assertEquals(first.id, vm.state.value.activeFileId)
+        assertFalse(first.draft)
+
+        val second = vm.createFromTemplate(template)
+        assertEquals("${template.name}-2.numr", second.path)
+    }
+
+    @Test
+    fun instantiateTemplateSkipsExistingPaths() {
+        val template = Template(id = "t", name = "Demo", description = "", content = "x = 1\n")
+        assertEquals("Demo-1.numr", instantiateTemplate(template, emptyList()))
+        assertEquals(
+            "Demo-3.numr",
+            instantiateTemplate(template, listOf("Demo-1.numr", "Demo-2.numr")),
         )
     }
 }

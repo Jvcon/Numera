@@ -1,6 +1,9 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { Template } from '../lib/templates';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.templateChooser;
 
 /**
  * Template chooser — a modal listing the built-in scenario templates.
@@ -260,14 +263,14 @@ export class NumeraTemplateChooser extends LitElement {
           class="panel"
           role="dialog"
           aria-modal="true"
-          aria-label="从模板新建"
+          aria-label=${S.title}
         >
           <div class="header">
-            <span class="title">从模板新建</span>
+            <span class="title">${S.title}</span>
             <button
               class="close-button"
               type="button"
-              aria-label="关闭"
+              aria-label=${S.close}
               @click=${this.close}
             >
               ${ICONS.close}
@@ -275,7 +278,7 @@ export class NumeraTemplateChooser extends LitElement {
           </div>
           <div class="list">
             ${this.templates.length === 0
-              ? html`<div class="empty">暂无可用模板</div>`
+              ? html`<div class="empty">${S.empty}</div>`
               : this.templates.map(
                   (t) => html`
                     <button

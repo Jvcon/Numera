@@ -88,8 +88,8 @@ lives in `contracts/interaction.json` (`surfaces[].entry`). The invariants:
 
 - **`globals` is entered only from the top bar** (`top-bar:open-globals`). It is
   never an entry in the file list or the drawer.
-- **`draft` is entered from the FAB and the top bar** (`fab:new-draft`,
-  `top-bar:new-draft`). It is never an entry in the file list.
+- **`draft` is entered from the FAB** (`fab:new-draft`). It is never an entry in
+  the file list or the top bar.
 - **`command` is entered from the FAB and a key binding** (`fab:command`,
   `keybinding:cmd+k`). Web and Android must expose the same two entries.
 - **`navigation-drawer` is entered from the top-bar menu** where a drawer
@@ -159,9 +159,9 @@ edge-swipe gesture, so hiding `menu` would strand navigation).
 
 | Editing target | Trailing actions (in order) |
 |---|---|
-| `file` | `new-draft`, `open-globals` |
-| `globals` | `new-draft`, `exit-editing-target` |
-| `draft` | `new-draft`, `exit-editing-target` |
+| `file` | `template`, `open-globals` |
+| `globals` | `template`, `exit-editing-target` |
+| `draft` | `template`, `exit-editing-target` |
 
 ### 4.4 Icons
 

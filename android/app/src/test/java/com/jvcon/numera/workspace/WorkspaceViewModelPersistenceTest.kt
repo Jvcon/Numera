@@ -104,7 +104,7 @@ class WorkspaceViewModelPersistenceTest {
         vm.persistNow()
 
         val saved = persister.saved ?: error("nothing was saved")
-        assertEquals(3, saved.files.size)
+        assertEquals(1, saved.files.size)
         assertTrue(saved.files.none { it.id.startsWith("draft-") })
     }
 

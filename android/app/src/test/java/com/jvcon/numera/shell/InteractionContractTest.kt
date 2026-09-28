@@ -66,7 +66,7 @@ class InteractionContractTest {
 
     @Test
     fun `file target trailing actions have no exit`() {
-        assertEquals(listOf("new-draft", "open-globals"), contract.trailingActions("file"))
+        assertEquals(listOf("template", "open-globals"), contract.trailingActions("file"))
     }
 
     @Test

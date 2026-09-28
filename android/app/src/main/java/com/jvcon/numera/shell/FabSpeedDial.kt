@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -28,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import com.jvcon.numera.R
 import com.jvcon.numera.ui.theme.NumeraDimens
 import com.jvcon.numera.ui.theme.NumeraElevation
 import com.jvcon.numera.ui.theme.NumeraMotion
@@ -48,6 +51,7 @@ fun FabSpeedDial(
     onNewFile: () -> Unit,
     onNewDraft: () -> Unit,
     onCommand: () -> Unit,
+    onTemplate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -88,7 +92,7 @@ fun FabSpeedDial(
             ) {
                 SpeedDialAction(
                     icon = Icons.Filled.Add,
-                    label = "New file",
+                    label = stringResource(R.string.new_file),
                     tag = "fab-new-file",
                     onClick = {
                         onNewFile()
@@ -97,7 +101,7 @@ fun FabSpeedDial(
                 )
                 SpeedDialAction(
                     icon = Icons.Filled.Bolt,
-                    label = "New draft",
+                    label = stringResource(R.string.new_draft),
                     tag = "fab-new-draft",
                     onClick = {
                         onNewDraft()
@@ -106,10 +110,19 @@ fun FabSpeedDial(
                 )
                 SpeedDialAction(
                     icon = Icons.Filled.Search,
-                    label = "Command",
+                    label = stringResource(R.string.command),
                     tag = "fab-command",
                     onClick = {
                         onCommand()
+                        onExpandedChange(false)
+                    },
+                )
+                SpeedDialAction(
+                    icon = Icons.Filled.GridView,
+                    label = stringResource(R.string.template),
+                    tag = "fab-template",
+                    onClick = {
+                        onTemplate()
                         onExpandedChange(false)
                     },
                 )
@@ -130,7 +143,11 @@ fun FabSpeedDial(
         ) {
             Icon(
                 imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.Add,
-                contentDescription = if (expanded) "Close menu" else "Open menu",
+                contentDescription = if (expanded) {
+                    stringResource(R.string.close_menu)
+                } else {
+                    stringResource(R.string.open_menu)
+                },
             )
         }
     }

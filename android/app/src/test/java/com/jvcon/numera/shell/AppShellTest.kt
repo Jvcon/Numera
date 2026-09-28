@@ -55,6 +55,8 @@ class AppShellTest {
     @Test
     fun compact_drawerOpensAndSelectingAFileSwitchesTheEditor() {
         val vm = newViewModel()
+        val target = vm.createFile("second.numr")
+        vm.selectFile("quick-start")
         renderShell(vm, AppWindowLayout(AppWindowSizeClass.COMPACT))
 
         // Drawer starts closed; the menu affordance is in the editor top bar.
@@ -63,8 +65,6 @@ class AppShellTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("file-list", useUnmergedTree = true).assertIsDisplayed()
 
-        val active = vm.state.value.activeFileId
-        val target = vm.state.value.files.first { it.id != active && it.folderId == null }
         composeRule.onNodeWithTag("file-list", useUnmergedTree = true)
             .performScrollToNode(hasTestTag("file-row-${target.id}"))
         composeRule.onNodeWithTag("file-row-${target.id}").performClick()
@@ -105,7 +105,7 @@ class AppShellTest {
     }
 
     @Test
-    fun fab_expandsToThreeActionsAndScrimCollapsesIt() {
+    fun fab_expandsToFourActionsAndScrimCollapsesIt() {
         val vm = newViewModel()
         renderShell(vm, AppWindowLayout(AppWindowSizeClass.EXPANDED))
 
@@ -117,6 +117,7 @@ class AppShellTest {
         composeRule.onNodeWithTag("fab-new-file").assertIsDisplayed()
         composeRule.onNodeWithTag("fab-new-draft").assertIsDisplayed()
         composeRule.onNodeWithTag("fab-command").assertIsDisplayed()
+        composeRule.onNodeWithTag("fab-template").assertIsDisplayed()
 
         composeRule.onNodeWithTag("fab-scrim").performClick()
         composeRule.waitForIdle()
@@ -131,8 +132,10 @@ class AppShellTest {
 
         val file = vm.state.value.files.first { !it.draft && !it.pinned && it.folderId == null }
         composeRule.onNodeWithTag("file-list", useUnmergedTree = true)
-            .performScrollToNode(hasTestTag("pin-file-${file.id}"))
-        composeRule.onNodeWithTag("pin-file-${file.id}").performClick()
+            .performScrollToNode(hasTestTag("file-menu-${file.id}"))
+        composeRule.onNodeWithTag("file-menu-${file.id}").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("pin-menu-file-${file.id}").performClick()
         composeRule.waitForIdle()
 
         assertTrue(vm.state.value.files.first { it.id == file.id }.pinned)

@@ -1,6 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { formatKeyInput, type KeyEventDetail } from '../lib/keyboard';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.devOverlay;
 
 @customElement('numera-dev-overlay')
 export class NumeraDevOverlay extends LitElement {
@@ -154,18 +157,18 @@ export class NumeraDevOverlay extends LitElement {
   render() {
     return html`
       <button class="toggle" @click=${this.toggleOpen}>
-        ${this.open ? 'Hide' : 'Show'} key bridge
+        ${S.toggle(this.open)}
       </button>
 
       ${this.open
         ? html`
-            <div class="panel" role="log" aria-live="polite" aria-label="Keyboard bridge debug log">
+            <div class="panel" role="log" aria-live="polite" aria-label=${S.ariaLabel}>
               <div class="panel-header">
-                <span>Key bridge log</span>
-                <button @click=${this.clearEvents}>Clear</button>
+                <span>${S.title}</span>
+                <button @click=${this.clearEvents}>${S.clear}</button>
               </div>
               ${this.events.length === 0
-                ? html`<div class="empty">No keys captured yet.</div>`
+                ? html`<div class="empty">${S.empty}</div>`
                 : this.events.map(
                     (event) => html`
                       <div class="event">

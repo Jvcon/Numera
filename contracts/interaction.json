@@ -99,9 +99,9 @@
       "expanded": "none"
     },
     "trailing": {
-      "file": ["new-draft", "open-globals"],
-      "globals": ["new-draft", "exit-editing-target"],
-      "draft": ["new-draft", "exit-editing-target"]
+      "file": ["template", "open-globals"],
+      "globals": ["template", "exit-editing-target"],
+      "draft": ["template", "exit-editing-target"]
     },
     "exitIcon": "close"
   },

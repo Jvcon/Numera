@@ -17,7 +17,7 @@
 export interface Template {
   /** Unique id, e.g. `mortgage`. */
   id: string;
-  /** Human-readable name, e.g. `房贷计算器`. */
+  /** Human-readable name, e.g. `Mortgage Calculator`. */
   name: string;
   /** One-line description. */
   description: string;
@@ -93,9 +93,9 @@ export function parseAnnotations(content: string): Annotations {
 }
 
 export interface InstantiatedTemplate {
-  /** Workspace path, e.g. `房贷计算器-1.numr`. */
+  /** Workspace path, e.g. `Mortgage Calculator-1.numr`. */
   path: string;
-  /** Display name, e.g. `房贷计算器-1`. */
+  /** Display name, e.g. `Mortgage Calculator-1`. */
   displayName: string;
 }
 
@@ -125,38 +125,38 @@ export function instantiateTemplate(
 export const BUILT_IN_TEMPLATES: Template[] = [
   {
     id: 'mortgage',
-    name: '房贷计算器',
-    description: '等额本息与等额本金月供、总利息对比',
+    name: 'Mortgage Calculator',
+    description: 'Compare equal-payment and equal-principal monthly payments and total interest',
     content: `# @money
-# 房贷计算器 — 等额本息 vs 等额本金
+# Mortgage Calculator — equal payment vs equal principal
 
-# @input 贷款本金
+# @input Loan principal
 loan = 3000000
-# @input 年利率
+# @input Annual rate
 annual_rate = 3.1%
-# @input 贷款年限
+# @input Loan term (years)
 years = 30
 
 monthly_rate = annual_rate / 12
 months = years * 12
 
-# 等额本息
-# @result 月供（等额本息）
+# Equal payment (annuity)
+# @result Monthly payment (equal payment)
 monthly = loan * monthly_rate * (1 + monthly_rate)^months / ((1 + monthly_rate)^months - 1)
-# @result 总利息（等额本息）
+# @result Total interest (equal payment)
 interest_annuity = monthly * months - loan
-# @result 还款总额（等额本息）
+# @result Total repayment (equal payment)
 total_annuity = monthly * months
 
-# 等额本金
+# Equal principal
 principal_per_month = loan / months
-# @result 首月月供（等额本金）
+# @result First month payment (equal principal)
 first_payment = principal_per_month + loan * monthly_rate
-# @result 末月月供（等额本金）
+# @result Last month payment (equal principal)
 last_payment = principal_per_month + principal_per_month * monthly_rate
-# @result 总利息（等额本金）
+# @result Total interest (equal principal)
 interest_equal = months * monthly_rate * (loan + principal_per_month) / 2
-# @result 还款总额（等额本金）
+# @result Total repayment (equal principal)
 total_equal = loan + interest_equal
 `,
   },

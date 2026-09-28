@@ -74,10 +74,10 @@ class WorkspaceViewModel(
      * web `hydrate()` (lines 361-403).
      *
      * With no persister this simply clears [WorkspaceState.hydrating]. With a
-     * persister, a non-empty snapshot is mapped (v1 rows migrate through
-     * [deriveFoldersForFiles] + [normalizeScopes]); a null/empty snapshot marks
-     * the first run and writes the defaults. Finally the active file is
-     * evaluated.
+     * persister, any non-null snapshot is mapped (v1 rows migrate through
+     * [deriveFoldersForFiles] + [normalizeScopes]); a null snapshot marks the
+     * first run and writes the defaults. An empty-but-persisted snapshot is
+     * respected as-is. Finally the active file is evaluated.
      */
     suspend fun hydrate() {
         val store = persister
@@ -88,7 +88,10 @@ class WorkspaceViewModel(
 
         try {
             val snapshot = store.load()
-            if (snapshot != null && snapshot.files.isNotEmpty()) {
+            if (snapshot != null) {
+                // A persisted snapshot is authoritative — even an empty one
+                // (the user deleted every file). Only a missing `meta` sentinel
+                // (`snapshot == null`) means first run and re-seeds defaults.
                 val mapped = snapshot.files.map {
                     WorkspaceFile(
                         id = it.id,
@@ -519,6 +522,19 @@ class WorkspaceViewModel(
     }
 
     /**
+     * Instantiate a template as a new file: pick a non-colliding
+     * `<name>-<n>.numr` path, then create it (which selects it, evaluates it
+     * and persists it) with the template's source as content.
+     *
+     * Mirrors `WorkspaceStore.createFromTemplate` in `web/src/lib/workspace.ts`.
+     */
+    fun createFromTemplate(template: Template): WorkspaceFile {
+        val existing = state.value.files.map { it.path }
+        val path = instantiateTemplate(template, existing)
+        return createFile(path, template.content)
+    }
+
+    /**
      * Delete a file. If it was active, activate the first remaining file (or
      * none if the workspace is empty).
      */
@@ -632,8 +648,8 @@ class WorkspaceViewModel(
      * The persistable slice of the workspace.
      *
      * Drafts are intentionally excluded — they are ephemeral scratch files that
-     * must never be written to storage (satisfies the "draft 仅内存" acceptance
-     * criterion). #9 wires this to Room.
+     * must never be written to storage (satisfies the "drafts are memory-only"
+     * acceptance criterion). #9 wires this to Room.
      */
     fun toSnapshot(): WorkspaceSnapshot {
         val s = state.value
@@ -863,9 +879,9 @@ private fun basename(path: String): String =
 private fun uniqueId(): String = UUID.randomUUID().toString()
 
 /**
- * Build the initial state from the default fixtures: derive the "daily" folder
- * from the path prefix, then normalize every scope. Mirrors the web
- * `WorkspaceStore` constructor. `hydrating` starts true and is cleared by
+ * Build the initial state from the default fixtures: derive any folders from
+ * path prefixes, then normalize every scope. Mirrors the web `WorkspaceStore`
+ * constructor. `hydrating` starts true and is cleared by
  * [WorkspaceViewModel.hydrate].
  */
 private fun initialState(): WorkspaceState {

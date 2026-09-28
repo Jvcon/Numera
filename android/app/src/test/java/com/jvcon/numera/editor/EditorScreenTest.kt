@@ -184,10 +184,10 @@ class EditorScreenTest {
         renderEditor(engine)
 
         // FILE mode: active file title, globals entry point, no exit action.
-        composeRule.onNodeWithTag("editor-title").assertTextEquals("Budget 2026")
+        composeRule.onNodeWithTag("editor-title").assertTextEquals("Quick Start")
         composeRule.onNodeWithTag("open-globals").assertIsDisplayed()
         composeRule.onNodeWithTag("editor-exit").assertDoesNotExist()
-        composeRule.onNodeWithTag("new-draft").assertIsDisplayed()
+        composeRule.onNodeWithTag("open-templates").assertIsDisplayed()
 
         composeRule.onNodeWithTag("open-globals").performClick()
         composeRule.waitForIdle()
@@ -201,7 +201,7 @@ class EditorScreenTest {
         composeRule.waitForIdle()
 
         // Back in FILE mode.
-        composeRule.onNodeWithTag("editor-title").assertTextEquals("Budget 2026")
+        composeRule.onNodeWithTag("editor-title").assertTextEquals("Quick Start")
         composeRule.onNodeWithTag("open-globals").assertIsDisplayed()
         composeRule.onNodeWithTag("editor-exit").assertDoesNotExist()
     }

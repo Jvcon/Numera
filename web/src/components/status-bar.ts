@@ -1,5 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.statusBar;
 
 @customElement('numera-status-bar')
 export class NumeraStatusBar extends LitElement {
@@ -64,7 +67,9 @@ export class NumeraStatusBar extends LitElement {
   @property({ attribute: false }) lastError: string | null = null;
 
   render() {
-    const status = this.lastError ? `⚠ ${this.lastError}` : 'Press Ctrl+K for commands';
+    const status = this.lastError
+      ? `${S.errorPrefix}${this.lastError}`
+      : S.commandHint;
     return html`
       <div class="mode" aria-live="polite">
         <span class="mode-dot" aria-hidden="true"></span>

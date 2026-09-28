@@ -1,5 +1,8 @@
 import { LitElement, html, css, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.fab;
 
 /**
  * Speed-dial FAB — a Material 3 Floating Action Button pinned to the
@@ -250,16 +253,16 @@ export class NumeraFab extends LitElement {
       <div class="scrim" aria-hidden="true" @click=${this.close}></div>
 
       <div class="actions" id="fab-menu" ?inert=${!this.open}>
-        ${this.renderAction('New file', 'fab-new-file', ICONS.plus)}
-        ${this.renderAction('New draft', 'fab-new-draft', ICONS.bolt)}
-        ${this.renderAction('Command', 'fab-command', ICONS.query)}
-        ${this.renderAction('模板', 'fab-template', ICONS.template)}
+        ${this.renderAction(S.newFile, 'fab-new-file', ICONS.plus)}
+        ${this.renderAction(S.newDraft, 'fab-new-draft', ICONS.bolt)}
+        ${this.renderAction(S.command, 'fab-command', ICONS.query)}
+        ${this.renderAction(S.template, 'fab-template', ICONS.template)}
       </div>
 
       <button
         class="fab"
         type="button"
-        aria-label=${this.open ? 'Close menu' : 'Open menu'}
+        aria-label=${this.open ? S.closeMenu : S.openMenu}
         aria-haspopup="true"
         aria-expanded=${this.open}
         aria-controls="fab-menu"

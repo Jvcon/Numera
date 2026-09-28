@@ -1,5 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { STRINGS } from '../lib/strings';
+
+const S = STRINGS.topBar;
 
 const ICONS = {
   menu: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>`,
@@ -115,20 +118,20 @@ export class NumeraTopBar extends LitElement {
     return html`
       <md-icon-button
         class="menu-button"
-        aria-label=${this.sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+        aria-label=${this.sidebarOpen ? S.closeSidebar : S.openSidebar}
         @click=${this.dispatchMenuToggle}
       >
         <md-icon>${ICONS.menu}</md-icon>
       </md-icon-button>
 
       <div class="title" role="banner">
-        ${this.editingGlobals ? 'Globals' : this.fileName}
+        ${this.editingGlobals ? S.globalsTitle : this.fileName}
       </div>
 
       <div class="actions">
         <md-icon-button
-          aria-label="从模板新建"
-          title="从模板新建"
+          aria-label=${S.newFromTemplate}
+          title=${S.newFromTemplate}
           @click=${this.dispatchTemplateOpen}
         >
           <md-icon>${ICONS.template}</md-icon>
@@ -137,8 +140,8 @@ export class NumeraTopBar extends LitElement {
           ? html`
               <md-icon-button
                 class="exit-button"
-                aria-label="Exit globals"
-                title="Exit globals"
+                aria-label=${S.exitGlobals}
+                title=${S.exitGlobals}
                 @click=${this.dispatchGlobalsClose}
               >
                 <md-icon>${ICONS.close}</md-icon>
@@ -146,8 +149,8 @@ export class NumeraTopBar extends LitElement {
             `
           : html`
               <md-icon-button
-                aria-label="Global variables"
-                title="Global variables"
+                aria-label=${S.globalVariables}
+                title=${S.globalVariables}
                 @click=${this.dispatchGlobalOpen}
               >
                 <md-icon>${ICONS.functions}</md-icon>

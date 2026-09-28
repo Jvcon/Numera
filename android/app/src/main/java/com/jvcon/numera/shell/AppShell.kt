@@ -1,6 +1,8 @@
 package com.jvcon.numera.shell
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -13,14 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -37,11 +35,17 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.jvcon.numera.R
 import com.jvcon.numera.editor.EditorScreen
 import com.jvcon.numera.ui.theme.NumeraDimens
+import com.jvcon.numera.ui.theme.ThemeSetting
+import com.jvcon.numera.workspace.BUILT_IN_TEMPLATES
 import com.jvcon.numera.workspace.EditingTarget
+import com.jvcon.numera.workspace.WorkspaceFile
 import com.jvcon.numera.workspace.WorkspaceViewModel
 import kotlinx.coroutines.launch
 
@@ -60,17 +64,37 @@ import kotlinx.coroutines.launch
 fun AppShell(
     viewModel: WorkspaceViewModel,
     modifier: Modifier = Modifier,
+    theme: ThemeSetting = ThemeSetting.AUTO,
+    onToggleTheme: () -> Unit = {},
     layout: AppWindowLayout = rememberAppWindowLayout(),
 ) {
     val state by viewModel.state.collectAsState()
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val interactionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
 
     var speedDialExpanded by remember { mutableStateOf(false) }
     var commandVisible by remember { mutableStateOf(false) }
+    var templateChooserVisible by remember { mutableStateOf(false) }
     var newFileDialog by remember { mutableStateOf(false) }
-    var newFolderDialog by remember { mutableStateOf(false) }
+
+    // Export uses the Storage Access Framework: write the file's content to the
+    // URI the user picks in the system document picker.
+    var exportTarget by remember { mutableStateOf<WorkspaceFile?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        val file = exportTarget
+        if (uri != null && file != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(file.content.toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+        exportTarget = null
+    }
 
     val closeDrawer: () -> Unit = {
         if (drawerState.isOpen) scope.launch { drawerState.close() }
@@ -84,12 +108,21 @@ fun AppShell(
                 closeDrawer()
             },
             onToggleFilePin = viewModel::togglePin,
+            onRenameFile = viewModel::renameFile,
             onDeleteFile = viewModel::deleteFile,
+            onMoveFile = viewModel::moveFileToFolder,
+            onExportFile = { id ->
+                state.files.firstOrNull { it.id == id }?.let { file ->
+                    exportTarget = file
+                    exportLauncher.launch("${file.displayName}.numr")
+                }
+            },
             onToggleFolderPin = viewModel::toggleFolderPin,
+            onRenameFolder = viewModel::renameFolder,
             onToggleFolderCollapsed = viewModel::toggleFolderCollapsed,
             onDeleteFolder = viewModel::deleteFolder,
-            onCreateFile = { newFileDialog = true },
-            onCreateFolder = { newFolderDialog = true },
+            onCreateFolder = { name -> viewModel.createFolder(name).id },
+            onToggleTheme = onToggleTheme,
             modifier = paneModifier,
         )
     }
@@ -139,6 +172,7 @@ fun AppShell(
                         viewModel = viewModel,
                         modifier = Modifier.fillMaxSize(),
                         onOpenNavigation = { scope.launch { drawerState.open() } },
+                        onOpenTemplate = { templateChooserVisible = true },
                     )
                 }
             }
@@ -156,6 +190,7 @@ fun AppShell(
                         viewModel = viewModel,
                         modifier = Modifier.weight(1f),
                         onOpenNavigation = null,
+                        onOpenTemplate = { templateChooserVisible = true },
                     )
                 }
             }
@@ -182,6 +217,7 @@ fun AppShell(
             onNewFile = { newFileDialog = true },
             onNewDraft = { viewModel.createDraft() },
             onCommand = { commandVisible = true },
+            onTemplate = { templateChooserVisible = true },
             modifier = Modifier
                 .align(fabAlignmentFor(layout.hinge))
                 .navigationBarsPadding()
@@ -191,6 +227,7 @@ fun AppShell(
         if (commandVisible) {
             CommandOverlay(
                 files = state.files,
+                theme = theme.label,
                 onSelectFile = { id ->
                     viewModel.selectFile(id)
                     commandVisible = false
@@ -199,11 +236,25 @@ fun AppShell(
                     commandVisible = false
                     newFileDialog = true
                 },
-                onNewDraft = {
+                onToggleTheme = { onToggleTheme() },
+                onFromTemplate = {
                     commandVisible = false
-                    viewModel.createDraft()
+                    templateChooserVisible = true
                 },
                 onDismiss = { commandVisible = false },
+            )
+        }
+
+        if (templateChooserVisible) {
+            TemplateChooser(
+                templates = BUILT_IN_TEMPLATES,
+                onSelect = { id ->
+                    BUILT_IN_TEMPLATES.firstOrNull { it.id == id }?.let {
+                        viewModel.createFromTemplate(it)
+                    }
+                    templateChooserVisible = false
+                },
+                onDismiss = { templateChooserVisible = false },
             )
         }
     }
@@ -214,11 +265,13 @@ fun AppShell(
     val canExitEditingTarget =
         state.editingTarget == EditingTarget.GLOBALS || activeFile?.draft == true
     BackHandler(
-        enabled = speedDialExpanded || commandVisible || drawerState.isOpen || canExitEditingTarget,
+        enabled = speedDialExpanded || commandVisible || templateChooserVisible ||
+            drawerState.isOpen || canExitEditingTarget,
     ) {
         when {
             speedDialExpanded -> speedDialExpanded = false
             commandVisible -> commandVisible = false
+            templateChooserVisible -> templateChooserVisible = false
             drawerState.isOpen -> scope.launch { drawerState.close() }
             else -> viewModel.closeEditingTarget()
         }
@@ -226,9 +279,9 @@ fun AppShell(
 
     if (newFileDialog) {
         NameDialog(
-            title = "New file",
+            title = stringResource(R.string.new_file),
             tag = "new-file-dialog",
-            confirmLabel = "Create",
+            confirmLabel = stringResource(R.string.create),
             onConfirm = { name ->
                 viewModel.createFile(path = "$name.numr")
                 newFileDialog = false
@@ -236,57 +289,8 @@ fun AppShell(
             onDismiss = { newFileDialog = false },
         )
     }
-
-    if (newFolderDialog) {
-        NameDialog(
-            title = "New folder",
-            tag = "new-folder-dialog",
-            confirmLabel = "Create",
-            onConfirm = { name ->
-                viewModel.createFolder(name)
-                newFolderDialog = false
-            },
-            onDismiss = { newFolderDialog = false },
-        )
-    }
 }
 
 /** FAB corner: away from a separating hinge, else the conventional bottom-end. */
 private fun fabAlignmentFor(hinge: HingeInsets): Alignment =
     if (fabEdgeFor(hinge) == HingeEdge.START) Alignment.BottomStart else Alignment.BottomEnd
-
-@Composable
-private fun NameDialog(
-    title: String,
-    tag: String,
-    confirmLabel: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                singleLine = true,
-                label = { Text("Name") },
-                modifier = Modifier.testTag("$tag-field"),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { if (name.isNotBlank()) onConfirm(name.trim()) },
-                modifier = Modifier.testTag("$tag-confirm"),
-            ) {
-                Text(confirmLabel)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-        modifier = Modifier.testTag(tag),
-    )
-}

@@ -3,24 +3,26 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { ThemeSetting } from '../lib/theme';
 
 /**
- * Command palette — a keyboard-first modal for switching files and
- * running commands (new file, toggle theme). Triggered by Ctrl/Cmd+K
- * or the top-bar search button.
+ * Command — a keyboard-first overlay for switching files and running commands
+ * (new file, toggle theme). Triggered by Ctrl/Cmd+K or the FAB's Command action.
+ *
+ * The canonical surface is `command`; `palette`, `command-palette`, and `search`
+ * are forbidden synonyms (docs/interaction-model.md §7).
  *
  * Events (bubbling + composed):
- *   - `palette-select-file`  detail `{ id }`
- *   - `palette-command`      detail `{ id }`
- *   - `palette-close`
+ *   - `command-select-file`  detail `{ id }`
+ *   - `command-run`          detail `{ id }`
+ *   - `command-close`
  */
 
-export interface PaletteFile {
+export interface CommandFile {
   id: string;
   path: string;
   displayName: string;
   pinned: boolean;
 }
 
-interface PaletteItem {
+interface CommandItem {
   id: string;
   label: string;
   detail: string;
@@ -34,12 +36,12 @@ const ICONS = {
   plus: html`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`,
   theme: html`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>`,
   pin: html`<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 12V4H17V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`,
-  search: html`<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`,
+  query: html`<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`,
   template: html`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>`,
 };
 
-@customElement('numera-command-palette')
-export class NumeraCommandPalette extends LitElement {
+@customElement('numera-command')
+export class NumeraCommand extends LitElement {
   static styles = css`
     :host {
       display: contents;
@@ -84,7 +86,7 @@ export class NumeraCommandPalette extends LitElement {
       transform: translateY(0) scale(1);
     }
 
-    .search-row {
+    .query-row {
       display: flex;
       align-items: center;
       gap: var(--md-sys-spacing-inline-loose);
@@ -92,11 +94,11 @@ export class NumeraCommandPalette extends LitElement {
       border-bottom: 1px solid var(--md-sys-color-outline-variant);
     }
 
-    .search-row md-icon {
+    .query-row md-icon {
       color: var(--md-sys-color-on-surface-variant);
     }
 
-    .search-input {
+    .query-input {
       flex: 1;
       border: none;
       outline: none;
@@ -109,7 +111,7 @@ export class NumeraCommandPalette extends LitElement {
       letter-spacing: var(--md-sys-typescale-title-medium-tracking);
     }
 
-    .search-input::placeholder {
+    .query-input::placeholder {
       color: var(--md-sys-color-on-surface-variant);
     }
 
@@ -208,7 +210,7 @@ export class NumeraCommandPalette extends LitElement {
 
   @property({ type: Boolean, reflect: true }) open = false;
 
-  @property({ attribute: false }) files: PaletteFile[] = [];
+  @property({ attribute: false }) files: CommandFile[] = [];
 
   @property() theme: ThemeSetting = 'auto';
 
@@ -220,7 +222,7 @@ export class NumeraCommandPalette extends LitElement {
 
   private inputEl: HTMLInputElement | null = null;
 
-  private get commands(): PaletteItem[] {
+  private get commands(): CommandItem[] {
     return [
       {
         id: 'new-file',
@@ -243,7 +245,7 @@ export class NumeraCommandPalette extends LitElement {
     ];
   }
 
-  private get fileItems(): PaletteItem[] {
+  private get fileItems(): CommandItem[] {
     return this.files.map((f) => ({
       id: f.id,
       label: f.displayName,
@@ -253,7 +255,7 @@ export class NumeraCommandPalette extends LitElement {
     }));
   }
 
-  private get filteredItems(): PaletteItem[] {
+  private get filteredItems(): CommandItem[] {
     const all = [...this.fileItems, ...this.commands];
     const q = this.query.trim().toLowerCase();
     if (!q) return all;
@@ -325,7 +327,7 @@ export class NumeraCommandPalette extends LitElement {
     if (!item) return;
     if (item.kind === 'file') {
       this.dispatchEvent(
-        new CustomEvent('palette-select-file', {
+        new CustomEvent('command-select-file', {
           detail: { id: item.id },
           bubbles: true,
           composed: true,
@@ -333,7 +335,7 @@ export class NumeraCommandPalette extends LitElement {
       );
     } else {
       this.dispatchEvent(
-        new CustomEvent('palette-command', {
+        new CustomEvent('command-run', {
           detail: { id: item.id },
           bubbles: true,
           composed: true,
@@ -345,7 +347,7 @@ export class NumeraCommandPalette extends LitElement {
 
   private close(): void {
     this.dispatchEvent(
-      new CustomEvent('palette-close', {
+      new CustomEvent('command-close', {
         bubbles: true,
         composed: true,
       }),
@@ -358,7 +360,7 @@ export class NumeraCommandPalette extends LitElement {
     }
   }
 
-  private renderItem(item: PaletteItem, index: number) {
+  private renderItem(item: CommandItem, index: number) {
     const isSelected = index === this.selectedIndex;
     const icon =
       item.kind === 'command'
@@ -401,13 +403,13 @@ export class NumeraCommandPalette extends LitElement {
 
     return html`
       <div class="backdrop" @mousedown=${this.handleBackdropClick}>
-        <div class="panel" role="dialog" aria-modal="true" aria-label="Command palette">
-          <div class="search-row">
-            <md-icon>${ICONS.search}</md-icon>
+        <div class="panel" role="dialog" aria-modal="true" aria-label="Command">
+          <div class="query-row">
+            <md-icon>${ICONS.query}</md-icon>
             <input
-              class="search-input"
+              class="query-input"
               type="text"
-              placeholder="Search files and commands…"
+              placeholder="Command"
               .value=${this.query}
               @input=${this.handleInput}
               @keydown=${this.handleKeydown}

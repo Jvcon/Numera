@@ -43,6 +43,13 @@ class WorkspaceViewModel(
 
     private var draftCounter = 0
 
+    /**
+     * The most recent active non-draft file. Lets a non-list editing target
+     * (`globals`, `draft`) return to the file the user was on before entering
+     * it — the contract's `exit-editing-target` (docs/interaction-model.md).
+     */
+    private var lastNonDraftFileId: String? = null
+
     /** Pending debounced persistence job; null when nothing is scheduled. */
     private var saveJob: Job? = null
 
@@ -115,6 +122,7 @@ class WorkspaceViewModel(
                         hydrating = false,
                     )
                 }
+                lastNonDraftFileId = snapshot.files.firstOrNull()?.id
             } else {
                 _state.update { it.copy(hydrating = false) }
                 // First run: persist the defaults so subsequent reloads are
@@ -224,6 +232,9 @@ class WorkspaceViewModel(
     /** Select [id] as the active file and switch to file mode. */
     fun selectFile(id: String) {
         if (state.value.editingTarget == EditingTarget.FILE && state.value.activeFileId == id) return
+        state.value.files.firstOrNull { it.id == id }
+            ?.takeIf { !it.draft }
+            ?.let { lastNonDraftFileId = it.id }
         _state.update { it.copy(activeFileId = id, editingTarget = EditingTarget.FILE) }
         scope.launch { evaluateActiveFile() }
     }
@@ -501,6 +512,7 @@ class WorkspaceViewModel(
 
         val next = applyPlan(files0, folders, plan)
         _state.update { it.copy(files = next.first, folders = next.second, activeFileId = id) }
+        lastNonDraftFileId = id
         scope.launch { evaluateActiveFile() }
         scheduleSave()
         return next.first.first { it.id == id }
@@ -515,6 +527,9 @@ class WorkspaceViewModel(
         val file = s.files.find { it.id == id } ?: return
         val files0 = s.files.filter { it.id != id }
         val activeFileId = if (s.activeFileId == id) files0.firstOrNull()?.id else s.activeFileId
+        if (lastNonDraftFileId == id) {
+            lastNonDraftFileId = files0.firstOrNull { !it.draft }?.id
+        }
 
         val fileScope = file.folderId
         val refs = scopeRefs(files0, s.folders, fileScope)
@@ -578,6 +593,30 @@ class WorkspaceViewModel(
     fun closeGlobals() {
         if (state.value.editingTarget != EditingTarget.GLOBALS) return
         _state.update { it.copy(editingTarget = EditingTarget.FILE) }
+        scope.launch { evaluateActiveFile() }
+    }
+
+    /**
+     * Leave the current non-list editing target (`globals` or a `draft`),
+     * returning the editor to the previously active file. No-op when the
+     * editing target is a list file.
+     *
+     * This is the contract's single `exit-editing-target` action
+     * (docs/interaction-model.md §3): globals and drafts share one exit, rendered
+     * as a trailing Close (X).
+     */
+    fun closeEditingTarget() {
+        val s = state.value
+        if (s.editingTarget == EditingTarget.GLOBALS) {
+            closeGlobals()
+            return
+        }
+        val active = s.files.firstOrNull { it.id == s.activeFileId }
+        if (active == null || !active.draft) return
+        val fallback = lastNonDraftFileId
+            ?.takeIf { id -> s.files.any { it.id == id && !it.draft } }
+            ?: s.files.firstOrNull { !it.draft }?.id
+        _state.update { it.copy(activeFileId = fallback, editingTarget = EditingTarget.FILE) }
         scope.launch { evaluateActiveFile() }
     }
 

@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.jvcon.numera.editor.EditorScreen
 import com.jvcon.numera.ui.theme.NumeraDimens
+import com.jvcon.numera.workspace.EditingTarget
 import com.jvcon.numera.workspace.WorkspaceViewModel
 import kotlinx.coroutines.launch
 
@@ -67,7 +68,7 @@ fun AppShell(
     val interactionSource = remember { MutableInteractionSource() }
 
     var speedDialExpanded by remember { mutableStateOf(false) }
-    var searchVisible by remember { mutableStateOf(false) }
+    var commandVisible by remember { mutableStateOf(false) }
     var newFileDialog by remember { mutableStateOf(false) }
     var newFolderDialog by remember { mutableStateOf(false) }
 
@@ -80,7 +81,6 @@ fun AppShell(
             state = state,
             onSelectFile = { id ->
                 viewModel.selectFile(id)
-                searchVisible = false
                 closeDrawer()
             },
             onToggleFilePin = viewModel::togglePin,
@@ -90,12 +90,7 @@ fun AppShell(
             onDeleteFolder = viewModel::deleteFolder,
             onCreateFile = { newFileDialog = true },
             onCreateFolder = { newFolderDialog = true },
-            onOpenGlobals = {
-                viewModel.openGlobals()
-                closeDrawer()
-            },
             modifier = paneModifier,
-            searchVisible = searchVisible,
         )
     }
 
@@ -186,15 +181,48 @@ fun AppShell(
             onExpandedChange = { speedDialExpanded = it },
             onNewFile = { newFileDialog = true },
             onNewDraft = { viewModel.createDraft() },
-            onSearch = { searchVisible = true },
+            onCommand = { commandVisible = true },
             modifier = Modifier
                 .align(fabAlignmentFor(layout.hinge))
                 .navigationBarsPadding()
                 .padding(NumeraDimens.spacingBlockLoose),
         )
+
+        if (commandVisible) {
+            CommandOverlay(
+                files = state.files,
+                onSelectFile = { id ->
+                    viewModel.selectFile(id)
+                    commandVisible = false
+                },
+                onNewFile = {
+                    commandVisible = false
+                    newFileDialog = true
+                },
+                onNewDraft = {
+                    commandVisible = false
+                    viewModel.createDraft()
+                },
+                onDismiss = { commandVisible = false },
+            )
+        }
     }
 
-    BackHandler(enabled = speedDialExpanded) { speedDialExpanded = false }
+    // Contract back precedence (docs/interaction-model.md §3):
+    // dismiss-overlay → close-drawer → exit-editing-target → root-exit.
+    val activeFile = state.files.firstOrNull { it.id == state.activeFileId }
+    val canExitEditingTarget =
+        state.editingTarget == EditingTarget.GLOBALS || activeFile?.draft == true
+    BackHandler(
+        enabled = speedDialExpanded || commandVisible || drawerState.isOpen || canExitEditingTarget,
+    ) {
+        when {
+            speedDialExpanded -> speedDialExpanded = false
+            commandVisible -> commandVisible = false
+            drawerState.isOpen -> scope.launch { drawerState.close() }
+            else -> viewModel.closeEditingTarget()
+        }
+    }
 
     if (newFileDialog) {
         NameDialog(

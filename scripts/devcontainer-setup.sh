@@ -43,6 +43,34 @@ else
   rm -rf "$tmp"
 fi
 
+# Rust cross-compile targets. The base Rust image ships only the host target,
+# so the web and Android builds have nothing to link against until these are
+# added. Listing all targets in one `rustup target add` keeps the step idempotent.
+log "Installing Rust cross-compile targets (wasm32, Android)"
+rustup target add wasm32-unknown-unknown aarch64-linux-android x86_64-linux-android || true
+
+# cargo-ndk drives the Android NDK cross-compile in android/README.md. Guard so
+# re-runs on an existing container do not pay the compile cost again.
+if command -v cargo-ndk >/dev/null 2>&1; then
+  log "cargo-ndk already present: $(cargo ndk --version 2>&1 | head -n1)"
+else
+  log "Installing cargo-ndk (compiles from source; may take several minutes)"
+  cargo install cargo-ndk || true
+fi
+
+# wasm-bindgen CLI post-processes the wasm32 build in `npm run build:wasm`. The
+# version must match the `wasm-bindgen` pin in the workspace Cargo.toml, or the
+# CLI rejects the generated bindings, so derive it from Cargo.toml.
+wasm_bindgen_version="$(grep -oP 'wasm-bindgen = "=\K[^"]+' Cargo.toml 2>/dev/null | head -n1)"
+wasm_bindgen_version="${wasm_bindgen_version:-0.2.100}"
+if command -v wasm-bindgen >/dev/null 2>&1 \
+  && [ "$(wasm-bindgen --version | grep -oP 'wasm-bindgen \K[0-9.]+')" = "$wasm_bindgen_version" ]; then
+  log "wasm-bindgen CLI already present: $(wasm-bindgen --version)"
+else
+  log "Installing wasm-bindgen-cli ${wasm_bindgen_version} (compiles from source; may take several minutes)"
+  cargo install wasm-bindgen-cli --version "$wasm_bindgen_version" || true
+fi
+
 log "Installing OpenCode"
 curl -fsSL https://opencode.ai/install | bash || true
 export PATH="$HOME/.opencode/bin:$PATH"
@@ -56,5 +84,10 @@ npx --yes oh-my-opencode-slim@latest install \
 log "Installing mattpocock/skills"
 npx --yes skills@latest add mattpocock/skills \
   -g --agent opencode --skill '*' -y || true
+
+# Workspace dependencies for `npm run dev` / `npm run build`. No lifecycle hook
+# runs this, and the npm cache volume is writable only after the chown above.
+log "Installing npm workspace dependencies"
+npm install || true
 
 log "Dev container setup complete"

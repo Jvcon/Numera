@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "sourceOfTruth": "docs/interaction-model.md",
+  "editingTargets": [
+    {
+      "id": "file",
+      "title": "{activeFile.displayName}",
+      "inFileList": true,
+      "exit": null
+    },
+    {
+      "id": "globals",
+      "title": "Globals",
+      "inFileList": false,
+      "exit": "exit-editing-target"
+    },
+    {
+      "id": "draft",
+      "title": "Draft {n}",
+      "inFileList": false,
+      "exit": "exit-editing-target"
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "workspace",
+      "kind": "destination",
+      "status": "active",
+      "entry": [],
+      "exit": "root-exit"
+    },
+    {
+      "id": "navigation-drawer",
+      "kind": "overlay",
+      "status": "active",
+      "entry": ["top-bar:menu", "gesture:edge-swipe"],
+      "exit": "close-drawer"
+    },
+    {
+      "id": "command",
+      "kind": "overlay",
+      "status": "active",
+      "label": "Command",
+      "entry": ["fab:command", "keybinding:cmd+k"],
+      "exit": "dismiss-overlay"
+    },
+    {
+      "id": "template-chooser",
+      "kind": "overlay",
+      "status": "active",
+      "entry": ["fab:template", "top-bar:template"],
+      "exit": "dismiss-overlay"
+    },
+    {
+      "id": "name-dialog",
+      "kind": "overlay",
+      "status": "active",
+      "entry": ["sidebar:new-file", "sidebar:new-folder", "fab:new-file"],
+      "exit": "dismiss-overlay"
+    },
+    {
+      "id": "file-actions-menu",
+      "kind": "overlay",
+      "status": "active",
+      "entry": ["file-row:overflow"],
+      "exit": "dismiss-overlay"
+    },
+    {
+      "id": "settings",
+      "kind": "destination",
+      "status": "future",
+      "entry": ["sidebar:settings"],
+      "exit": "exit-destination"
+    },
+    {
+      "id": "encryption-setup",
+      "kind": "overlay",
+      "status": "future",
+      "entry": ["settings"],
+      "exit": "dismiss-overlay"
+    },
+    {
+      "id": "dev-overlay",
+      "kind": "overlay",
+      "status": "dev-only",
+      "entry": ["keybinding:dev"],
+      "exit": "dismiss-overlay"
+    }
+  ],
+  "nonSurfaces": [
+    { "id": "fab-speed-dial", "kind": "control" },
+    { "id": "snackbar", "kind": "transient" }
+  ],
+  "topBar": {
+    "invariant": "at most one affordance in the leading slot",
+    "leading": {
+      "compact": "menu",
+      "medium": "menu",
+      "expanded": "none"
+    },
+    "trailing": {
+      "file": ["new-draft", "open-globals"],
+      "globals": ["new-draft", "exit-editing-target"],
+      "draft": ["new-draft", "exit-editing-target"]
+    },
+    "exitIcon": "close"
+  },
+  "backPrecedence": [
+    "dismiss-overlay",
+    "close-drawer",
+    "exit-editing-target",
+    "root-exit"
+  ],
+  "bindings": {
+    "android": {
+      "dismiss-overlay": ["system-back", "scrim-tap"],
+      "close-drawer": ["system-back", "scrim-tap", "select-file"],
+      "exit-editing-target": ["system-back", "top-bar:exit-editing-target"],
+      "root-exit": ["system-back"]
+    },
+    "web": {
+      "dismiss-overlay": ["escape", "scrim-tap"],
+      "close-drawer": ["escape", "scrim-tap", "select-file"],
+      "exit-editing-target": ["escape", "top-bar:exit-editing-target"],
+      "root-exit": ["browser-back (out of scope)"]
+    }
+  },
+  "forbiddenSynonyms": {
+    "command": ["palette", "command-palette", "search"]
+  }
+}

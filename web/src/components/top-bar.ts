@@ -1,4 +1,4 @@
-import { LitElement, html, css, nothing } from 'lit';
+import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 const ICONS = {
@@ -121,19 +121,6 @@ export class NumeraTopBar extends LitElement {
         <md-icon>${ICONS.menu}</md-icon>
       </md-icon-button>
 
-      ${this.editingGlobals
-        ? html`
-            <md-icon-button
-              class="exit-button"
-              aria-label="Exit globals"
-              title="Exit globals"
-              @click=${this.dispatchGlobalsClose}
-            >
-              <md-icon>${ICONS.close}</md-icon>
-            </md-icon-button>
-          `
-        : nothing}
-
       <div class="title" role="banner">
         ${this.editingGlobals ? 'Globals' : this.fileName}
       </div>
@@ -146,13 +133,26 @@ export class NumeraTopBar extends LitElement {
         >
           <md-icon>${ICONS.template}</md-icon>
         </md-icon-button>
-        <md-icon-button
-          aria-label="Global variables"
-          title="Global variables"
-          @click=${this.dispatchGlobalOpen}
-        >
-          <md-icon>${ICONS.functions}</md-icon>
-        </md-icon-button>
+        ${this.editingGlobals
+          ? html`
+              <md-icon-button
+                class="exit-button"
+                aria-label="Exit globals"
+                title="Exit globals"
+                @click=${this.dispatchGlobalsClose}
+              >
+                <md-icon>${ICONS.close}</md-icon>
+              </md-icon-button>
+            `
+          : html`
+              <md-icon-button
+                aria-label="Global variables"
+                title="Global variables"
+                @click=${this.dispatchGlobalOpen}
+              >
+                <md-icon>${ICONS.functions}</md-icon>
+              </md-icon-button>
+            `}
       </div>
     `;
   }

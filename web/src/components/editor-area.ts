@@ -302,7 +302,7 @@ export class NumeraEditor extends LitElement {
           </div>
           <div class="empty-title">No file selected</div>
           <div class="empty-body">
-            Pick a file from the sidebar, or press Ctrl+K to open the command palette.
+            Pick a file from the sidebar, or press Ctrl+K to open Command.
           </div>
         </div>
       `;

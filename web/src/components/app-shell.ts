@@ -10,7 +10,7 @@ import './top-bar';
 import './sidebar';
 import './editor-area';
 import './status-bar';
-import './command-palette';
+import './command';
 import './template-chooser';
 import './snackbar';
 import './fab';
@@ -174,7 +174,7 @@ export class NumeraAppShell extends LitElement {
   private lastError: string | null = null;
 
   @state()
-  private paletteOpen = false;
+  private commandOpen = false;
 
   @state()
   private templateChooserOpen = false;
@@ -228,7 +228,7 @@ export class NumeraAppShell extends LitElement {
     this.store.setSettings(getSettings());
     this.settingsUnsub = subscribeSettings((s) => this.store.setSettings(s));
 
-    // Ctrl/Cmd+K opens the command palette.
+    // Ctrl/Cmd+K opens Command.
     window.addEventListener('numera-keyevent', this.handleGlobalKeyEvent as EventListener);
 
     // Flush any pending debounced save before the page is hidden or
@@ -294,7 +294,7 @@ export class NumeraAppShell extends LitElement {
     const { input } = event.detail;
     if ((input.ctrl || input.meta) && (input.key === 'k' || input.key === 'K')) {
       event.preventDefault?.();
-      this.paletteOpen = true;
+      this.commandOpen = true;
     }
   };
 
@@ -428,8 +428,8 @@ export class NumeraAppShell extends LitElement {
     this.sidebarOpen = false;
   };
 
-  private handleFabSearch = () => {
-    this.paletteOpen = true;
+  private handleFabCommand = () => {
+    this.commandOpen = true;
   };
 
   private handleFabNewDraft = () => {
@@ -445,16 +445,16 @@ export class NumeraAppShell extends LitElement {
     this.store.closeGlobals();
   };
 
-  private handlePaletteClose = () => {
-    this.paletteOpen = false;
+  private handleCommandClose = () => {
+    this.commandOpen = false;
   };
 
-  private handlePaletteSelectFile = (event: Event) => {
+  private handleCommandSelectFile = (event: Event) => {
     const custom = event as CustomEvent<{ id: string }>;
     this.store.selectFile(custom.detail.id);
   };
 
-  private handlePaletteCommand = (event: Event) => {
+  private handleCommandRun = (event: Event) => {
     const custom = event as CustomEvent<{ id: string }>;
     if (custom.detail.id === 'new-file') {
       this.handleFileCreate();
@@ -548,14 +548,14 @@ export class NumeraAppShell extends LitElement {
 
       <div class="sidebar-backdrop" aria-hidden="true" @click=${this.handleBackdropClick}></div>
 
-      <numera-command-palette
-        .open=${this.paletteOpen}
+      <numera-command
+        .open=${this.commandOpen}
         .files=${this.sidebarFiles}
         .theme=${this.theme}
-        @palette-select-file=${this.handlePaletteSelectFile}
-        @palette-command=${this.handlePaletteCommand}
-        @palette-close=${this.handlePaletteClose}
-      ></numera-command-palette>
+        @command-select-file=${this.handleCommandSelectFile}
+        @command-run=${this.handleCommandRun}
+        @command-close=${this.handleCommandClose}
+      ></numera-command>
 
       <numera-template-chooser
         .open=${this.templateChooserOpen}
@@ -567,7 +567,7 @@ export class NumeraAppShell extends LitElement {
       <numera-fab
         @fab-new-file=${this.handleFileCreate}
         @fab-new-draft=${this.handleFabNewDraft}
-        @fab-search=${this.handleFabSearch}
+        @fab-command=${this.handleFabCommand}
         @fab-template=${this.handleFabTemplate}
       ></numera-fab>
 

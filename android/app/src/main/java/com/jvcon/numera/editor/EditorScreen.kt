@@ -16,8 +16,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Functions
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CircularProgressIndicator
@@ -86,17 +86,25 @@ fun EditorScreen(
     val state by viewModel.state.collectAsState()
 
     val isGlobals = state.editingTarget == EditingTarget.GLOBALS
+    val activeFile = state.files.firstOrNull { it.id == state.activeFileId }
     val identity = if (isGlobals) GLOBALS_IDENTITY else state.activeFileId ?: NO_FILE_IDENTITY
     val content = if (isGlobals) {
         state.globalsContent
     } else {
-        state.files.firstOrNull { it.id == state.activeFileId }?.content ?: ""
+        activeFile?.content ?: ""
     }
     val title = if (isGlobals) {
         "Globals"
     } else {
-        state.files.firstOrNull { it.id == state.activeFileId }?.displayName ?: "Numera"
+        activeFile?.displayName ?: "Numera"
     }
+
+    // A non-list editing target (`globals` or a `draft`) exits with a trailing
+    // Close (X); a `file` instead shows the globals entry point.
+    // See docs/interaction-model.md §4.
+    val isDraft = !isGlobals && activeFile?.draft == true
+    val showExit = isGlobals || isDraft
+    val exitDescription = if (isGlobals) "Exit Globals" else "Exit draft"
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -112,8 +120,9 @@ fun EditorScreen(
             Column {
                 EditorTopBar(
                     title = title,
-                    isGlobals = isGlobals,
-                    onBack = viewModel::closeGlobals,
+                    showExit = showExit,
+                    exitDescription = exitDescription,
+                    onBack = viewModel::closeEditingTarget,
                     onOpenGlobals = viewModel::openGlobals,
                     onNewDraft = { viewModel.createDraft() },
                     onOpenNavigation = onOpenNavigation,
@@ -173,15 +182,17 @@ fun EditorScreen(
 }
 
 /**
- * Chrome mirroring the web top bar: 64dp, `surfaceContainerLow`, action icons on
- * the end. A hamburger leads only when a drawer exists (Compact/Medium); a back
- * arrow replaces it while Globals is open.
+ * Chrome mirroring the web top bar: 64dp, `surfaceContainerLow`. The leading slot
+ * holds at most one affordance — the drawer menu, or nothing; it is never a back
+ * arrow. A non-list editing target (`globals`, `draft`) exits through a trailing
+ * Close (X) in the actions, per docs/interaction-model.md §4.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditorTopBar(
     title: String,
-    isGlobals: Boolean,
+    showExit: Boolean,
+    exitDescription: String,
     onBack: () -> Unit,
     onOpenGlobals: () -> Unit,
     onNewDraft: () -> Unit,
@@ -211,18 +222,6 @@ private fun EditorTopBar(
                     )
                 }
             }
-            if (isGlobals) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.testTag("editor-back"),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Exit Globals",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
         },
         actions = {
             TextButton(
@@ -238,7 +237,18 @@ private fun EditorTopBar(
                 Text("New draft")
             }
 
-            if (!isGlobals) {
+            if (showExit) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag("editor-exit"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = exitDescription,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
                 IconButton(
                     onClick = onOpenGlobals,
                     modifier = Modifier.testTag("open-globals"),

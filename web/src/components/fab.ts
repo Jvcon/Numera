@@ -10,14 +10,14 @@ import { customElement, property } from 'lit/decorators.js';
  * Events (bubbling + composed, no detail):
  *   - `fab-new-file`
  *   - `fab-new-draft`
- *   - `fab-search`
+ *   - `fab-command`
  *   - `fab-template`
  */
 
 const ICONS = {
   plus: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`,
   bolt: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/></svg>`,
-  search: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`,
+  query: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`,
   template: html`<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>`,
 };
 
@@ -252,7 +252,7 @@ export class NumeraFab extends LitElement {
       <div class="actions" id="fab-menu" ?inert=${!this.open}>
         ${this.renderAction('New file', 'fab-new-file', ICONS.plus)}
         ${this.renderAction('New draft', 'fab-new-draft', ICONS.bolt)}
-        ${this.renderAction('Search', 'fab-search', ICONS.search)}
+        ${this.renderAction('Command', 'fab-command', ICONS.query)}
         ${this.renderAction('模板', 'fab-template', ICONS.template)}
       </div>
 

@@ -12,6 +12,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/lib/navigation-model.test.ts src/lib/persistence.test.ts src/lib/file-ref.test.ts src/lib/templates.test.ts",
+    "test:sync": "node --import tsx --test src/lib/sync.test.ts",
     "test:persistence": "node --import tsx --test src/lib/persistence.test.ts",
     "clean": "rm -rf dist .vite"
   },

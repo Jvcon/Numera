@@ -116,7 +116,7 @@ class AppShellTest {
 
         composeRule.onNodeWithTag("fab-new-file").assertIsDisplayed()
         composeRule.onNodeWithTag("fab-new-draft").assertIsDisplayed()
-        composeRule.onNodeWithTag("fab-search").assertIsDisplayed()
+        composeRule.onNodeWithTag("fab-command").assertIsDisplayed()
 
         composeRule.onNodeWithTag("fab-scrim").performClick()
         composeRule.waitForIdle()
@@ -139,18 +139,30 @@ class AppShellTest {
     }
 
     @Test
-    fun searchActionRevealsTheFilterField() {
+    fun commandActionOpensTheCommandOverlay() {
         val vm = newViewModel()
         renderShell(vm, AppWindowLayout(AppWindowSizeClass.EXPANDED))
 
-        composeRule.onNodeWithTag("search-field", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag("command-overlay", useUnmergedTree = true).assertDoesNotExist()
 
         composeRule.onNodeWithTag("fab").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("fab-search").performClick()
+        composeRule.onNodeWithTag("fab-command").performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag("search-field", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("command-overlay", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("command-field", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun globalsAndDraftsAreAbsentFromTheFileList() {
+        val vm = newViewModel()
+        renderShell(vm, AppWindowLayout(AppWindowSizeClass.EXPANDED))
+
+        // `globals` is a non-list editing target: no row, and the only entry is
+        // the top-bar globals affordance.
+        composeRule.onNodeWithTag("globals-row", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag("open-globals").assertIsDisplayed()
     }
 
     private fun newViewModel(): WorkspaceViewModel {

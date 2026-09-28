@@ -66,6 +66,14 @@ android {
                 "--add-opens=java.desktop/java.awt.font=ALL-UNNAMED",
                 "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
             )
+            // The interaction conformance test reads the shared, repo-level
+            // fixture (contracts/interaction.json). Pass its absolute path so
+            // the test is independent of the test working directory.
+            it.systemProperty(
+                "numera.contract",
+                rootProject.projectDir.parentFile
+                    .resolve("contracts/interaction.json").absolutePath,
+            )
         }
     }
 

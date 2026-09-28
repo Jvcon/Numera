@@ -34,7 +34,7 @@ import com.jvcon.numera.ui.theme.NumeraMotion
 
 /**
  * Bottom-end FAB that expands into the three workspace actions (issue #12):
- * new file, new draft, and file search.
+ * new file, new draft, and the Command surface.
  *
  * Mirrors the web FAB: a `primaryContainer` round-square that swaps `+` for
  * `×`, with a staggered column of round `secondaryContainer` action buttons and
@@ -47,7 +47,7 @@ fun FabSpeedDial(
     onExpandedChange: (Boolean) -> Unit,
     onNewFile: () -> Unit,
     onNewDraft: () -> Unit,
-    onSearch: () -> Unit,
+    onCommand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -106,10 +106,10 @@ fun FabSpeedDial(
                 )
                 SpeedDialAction(
                     icon = Icons.Filled.Search,
-                    label = "Search",
-                    tag = "fab-search",
+                    label = "Command",
+                    tag = "fab-command",
                     onClick = {
-                        onSearch()
+                        onCommand()
                         onExpandedChange(false)
                     },
                 )

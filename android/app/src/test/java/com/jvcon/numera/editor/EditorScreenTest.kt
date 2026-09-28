@@ -167,11 +167,11 @@ class EditorScreenTest {
     }
 
     // -------------------------------------------------------------------------
-    // 4. Globals toggle — title + back affordance flip with the editing target.
+    // 4. Globals toggle — title + exit affordance flip with the editing target.
     // -------------------------------------------------------------------------
 
     @Test
-    fun globalsToggle_switchesTitleAndBackAffordance() {
+    fun globalsToggle_switchesTitleAndExitAffordance() {
         val engine = FakeEnginePort().apply {
             outcomes = listOf(
                 value("1"),
@@ -183,27 +183,27 @@ class EditorScreenTest {
         }
         renderEditor(engine)
 
-        // FILE mode: active file title, globals entry point, no back arrow.
+        // FILE mode: active file title, globals entry point, no exit action.
         composeRule.onNodeWithTag("editor-title").assertTextEquals("Budget 2026")
         composeRule.onNodeWithTag("open-globals").assertIsDisplayed()
-        composeRule.onNodeWithTag("editor-back").assertDoesNotExist()
+        composeRule.onNodeWithTag("editor-exit").assertDoesNotExist()
         composeRule.onNodeWithTag("new-draft").assertIsDisplayed()
 
         composeRule.onNodeWithTag("open-globals").performClick()
         composeRule.waitForIdle()
 
-        // GLOBALS mode: globals title, back arrow, no globals entry point.
+        // GLOBALS target: globals title, trailing close (X), no globals entry point.
         composeRule.onNodeWithTag("editor-title").assertTextEquals("Globals")
-        composeRule.onNodeWithTag("editor-back").assertIsDisplayed()
+        composeRule.onNodeWithTag("editor-exit").assertIsDisplayed()
         composeRule.onNodeWithTag("open-globals").assertDoesNotExist()
 
-        composeRule.onNodeWithTag("editor-back").performClick()
+        composeRule.onNodeWithTag("editor-exit").performClick()
         composeRule.waitForIdle()
 
         // Back in FILE mode.
         composeRule.onNodeWithTag("editor-title").assertTextEquals("Budget 2026")
         composeRule.onNodeWithTag("open-globals").assertIsDisplayed()
-        composeRule.onNodeWithTag("editor-back").assertDoesNotExist()
+        composeRule.onNodeWithTag("editor-exit").assertDoesNotExist()
     }
 
     // -------------------------------------------------------------------------

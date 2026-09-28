@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreateNewFolder
@@ -31,20 +29,14 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,7 +45,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import com.jvcon.numera.ui.theme.NumeraDimens
 import com.jvcon.numera.workspace.EditingTarget
@@ -62,11 +53,14 @@ import com.jvcon.numera.workspace.WorkspaceFolder
 import com.jvcon.numera.workspace.WorkspaceState
 
 /**
- * The workspace file list: globals entry, folder/file rows, and the
- * create/search affordances (issue #12).
+ * The workspace file list: folder/file rows and the create affordances
+ * (issue #12).
  *
- * Stateless apart from the search field's own text — every mutation is routed
- * out through a callback so the pane stays a pure function of [state].
+ * Stateless — every mutation is routed out through a callback so the pane stays
+ * a pure function of [state].
+ *
+ * `globals` and `draft` are non-list editing targets and must never appear here
+ * (docs/interaction-model.md §1.2); Globals is entered only from the top bar.
  *
  * Insets are owned here (not by the caller) so the pane looks identical whether
  * it is hosted by the modal drawer or by the expanded persistent column: the
@@ -84,15 +78,11 @@ fun FileListPane(
     onDeleteFolder: (String) -> Unit,
     onCreateFile: () -> Unit,
     onCreateFolder: () -> Unit,
-    onOpenGlobals: () -> Unit,
     modifier: Modifier = Modifier,
-    searchVisible: Boolean = false,
 ) {
-    var query by remember { mutableStateOf("") }
     val rows = remember(state.files, state.folders) {
         buildFileListRows(state.files, state.folders)
     }
-    val visibleRows = if (searchVisible) rows.filter { it.matchesQuery(query) } else rows
 
     Column(
         modifier = modifier
@@ -124,46 +114,13 @@ fun FileListPane(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        if (searchVisible) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                singleLine = true,
-                placeholder = { Text("Search files") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Search,
-                        contentDescription = null,
-                        modifier = Modifier.size(NumeraDimens.iconMedium),
-                    )
-                },
-                shape = MaterialTheme.shapes.extraSmall,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = {}),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = NumeraDimens.spacingInline,
-                        vertical = NumeraDimens.spacingInlineTight,
-                    )
-                    .testTag("search-field"),
-            )
-        }
-
-        GlobalsRow(
-            selected = state.editingTarget == EditingTarget.GLOBALS,
-            onClick = onOpenGlobals,
-        )
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .testTag("file-list"),
         ) {
-            items(items = visibleRows, key = { it.key() }) { row ->
+            items(items = rows, key = { it.key() }) { row ->
                 when (row) {
                     is FileListRow.FolderHeader -> FolderRow(
                         folder = row.folder,
@@ -228,48 +185,6 @@ fun FileListPane(
 private fun FileListRow.key(): String = when (this) {
     is FileListRow.FolderHeader -> "folder-${folder.id}"
     is FileListRow.FileRow -> "file-${file.id}"
-}
-
-@Composable
-private fun GlobalsRow(selected: Boolean, onClick: () -> Unit) {
-    val background = if (selected) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        Color.Transparent
-    }
-    val contentColor = if (selected) {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(background)
-            .clickable(onClick = onClick)
-            .height(NumeraDimens.touchTargetComfortable)
-            .padding(horizontal = NumeraDimens.spacingInline)
-            .testTag("globals-row"),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Functions,
-            contentDescription = null,
-            tint = if (selected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-            modifier = Modifier.size(NumeraDimens.iconMedium),
-        )
-        Spacer(Modifier.width(NumeraDimens.spacingInlineTight))
-        Text(
-            text = "Globals",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = contentColor,
-        )
-    }
 }
 
 @Composable

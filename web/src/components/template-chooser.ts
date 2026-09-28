@@ -4,7 +4,7 @@ import type { Template } from '../lib/templates';
 
 /**
  * Template chooser — a modal listing the built-in scenario templates.
- * Opened from the top bar, the FAB speed-dial, or the command palette;
+ * Opened from the top bar, the FAB speed-dial, or Command;
  * picking a template emits `template-select` so the shell can instantiate
  * it via the workspace store.
  *

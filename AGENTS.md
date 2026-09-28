@@ -15,3 +15,11 @@ Five canonical roles map to the default labels: `needs-triage`, `needs-info`, `r
 ### Domain docs
 
 Single-context: one `CONTEXT.md` at the repo root plus `docs/adr/` for decisions. See `docs/agents/domain.md`.
+
+### Interaction model
+
+Navigation and interaction semantics are normative in `docs/interaction-model.md`
+and its machine-readable form `contracts/interaction.json`. Visual tokens live in
+`docs/design-spec.md`. Before changing any client navigation or UI, read the
+interaction model and run the conformance tests; the review checklist is
+`docs/agents/interaction-review.md`.

@@ -1,13 +1,19 @@
 # Numera Web — Design Specification
 
-**Status:** Active — Phase 4 (interaction polish; command palette, FAB, snackbar shipped)
-**Owner:** web platform — this document is the reference for the Android client
-**Source of truth:** `web/src/styles/*.css` and `web/src/components/*.ts`
+**Status:** Active — **visual token specification only.** Navigation and
+interaction semantics are normative in `docs/interaction-model.md`; this
+document owns color, typography, shape, elevation, motion, density, and
+placement geometry.
+**Owner:** cross-platform — the reference for every Numera client
+**Source of truth (visual):** `web/src/styles/*.css` and `web/src/components/*.ts`
 
 This document is the human-facing companion to the token CSS and the
 actual component code. The rules below are mandatory; deviations require
-a written rationale in the PR. §13 maps the web's current behavior to the
-planned Android clients (phone / foldable / tablet).
+a written rationale in the PR. **For where the user can go and how they get
+there, see `docs/interaction-model.md`** — do not restate or contradict it
+here. §13 keeps the adaptive *geometry* (dimensions, hinge/occlusion, two-pane
+split); the *chrome choices* it mentions (drawer vs sidebar, which affordance
+shows) are governed by the interaction model.
 
 ---
 
@@ -89,7 +95,7 @@ Numera uses it as-is:
 | `surface-container-lowest` | `#FFFFFF` | `#0D0F0F` | Inverse surfaces, full-bleed backgrounds |
 | `surface-container-low` | `#EFF5F4` | `#191C1C` | Side panels, top bar |
 | `surface-container` | `#E9EFEF` | `#1E2121` | Cards on the canvas |
-| `surface-container-high` | `#E3EAE9` | `#282B2B` | Elevated surfaces (command palette panel) |
+| `surface-container-high` | `#E3EAE9` | `#282B2B` | Elevated surfaces (Command panel) |
 | `surface-container-highest` | `#E0E3E2` | `#323535` | Status bar, dev overlay, FAB action labels |
 
 **Rule:** every nested surface moves up the ladder, never down. The
@@ -140,7 +146,7 @@ combinations (e.g. tertiary text on surface) must be checked manually.
 | `headline-*` | Top-level screen titles — currently unused |
 | `title-large` | Sidebar brand ("Numera") + top-bar filename + "Globals" title |
 | `title-medium` | Section headers (currently unused) |
-| `title-small` | Command palette item labels |
+| `title-small` | Command item labels |
 | `body-large` | Running prose (none yet — placeholders for docs/markdown preview) |
 | `body-medium` | Default body text (reset baseline), snackbar message |
 | `body-small` | Empty-state body copy, editor error tooltip |
@@ -175,7 +181,7 @@ every headline/title that uses it updates. On Android, map
 | `shape-button` / `shape-icon-button` | pill (full) | `@material/web` buttons |
 | `shape-chip` | 8px (small) | dev overlay toggle |
 | `shape-card` | 12px (medium) | dev overlay panel |
-| `shape-dialog` | 28px (extra-large) | command palette panel |
+| `shape-dialog` | 28px (extra-large) | Command panel |
 | `shape-sheet` | 16px (large) | future bottom sheets |
 | `shape-fab` | 16px (large) | **unused** — see note |
 | `shape-snackbar` | 4px (extra-small) | snackbar |
@@ -205,7 +211,7 @@ Six physical levels (0–5) plus semantic aliases:
 | 0 | — | Resting canvas surfaces |
 | 1 | `card`, `nav-drawer` | Sidebar borders, soft cards |
 | 2 | `menu`, `tooltip`, `bottom-sheet` | Dev overlay panel, FAB mini actions (`level2`) |
-| 3 | `snackbar`, `dialog`, `fab-rest` | Command palette, snackbar, FAB rest (`level3`) |
+| 3 | `snackbar`, `dialog`, `fab-rest` | Command, snackbar, FAB rest (`level3`) |
 | 4 | `fab-hover` | FAB hover |
 | 5 | `fab-pressed` | FAB pressed |
 
@@ -330,7 +336,7 @@ Overlay z-order (web reference for Android stacking):
 | Sidebar drawer (mobile) | 3 |
 | FAB (+ scrim) | 4 |
 | Dev overlay | 10 |
-| Command palette backdrop/panel | 20 |
+| Command backdrop/panel | 20 |
 | Snackbar | 30 |
 
 ---
@@ -382,37 +388,43 @@ glyph, drawn as an inline SVG path.)
 |---|---|---|
 | `numera-app` | `app.ts` | Root shell; wires keyboard bridge |
 | `numera-app-shell` | `components/app-shell.ts` | Layout grid + owns the `WorkspaceStore`; wires all cross-component events |
-| `numera-top-bar` | `components/top-bar.ts` | App bar: hamburger + title + actions (globals / settings / theme); renders "Globals" title + back button in globals mode |
+| `numera-top-bar` | `components/top-bar.ts` | App bar: hamburger + title + actions (globals / settings / theme); renders "Globals" title + a trailing Close (X) for the globals editing target |
 | `numera-sidebar` | `components/sidebar.ts` | File list with selection + "new file" button |
 | `numera-editor` | `components/editor-area.ts` | CodeMirror 6 editor; renders active file OR the globals document; per-line results/errors as inline decorations; WASM-backed live evaluation |
-| `numera-fab` | `components/fab.ts` | Speed-dial FAB (new file / new draft / search) |
-| `numera-command-palette` | `components/command-palette.ts` | Ctrl/Cmd+K modal for file switch + commands |
+| `numera-fab` | `components/fab.ts` | Speed-dial FAB (new file / new draft / command) |
+| `numera-command` | `components/command.ts` | Ctrl/Cmd+K overlay for file switch + commands |
 | `numera-snackbar` | `components/snackbar.ts` | Transient feedback (`show(message)`) |
 | `numera-status-bar` | `components/status-bar.ts` | Mode indicator + command hint |
 | `numera-dev-overlay` | `components/dev-overlay.ts` | Keyboard-bridge debug log (dev only) |
 
 ### 11.1 Interaction patterns (new)
 
+> Navigation semantics (editing-target exits, the Command surface, back
+> precedence) are normative in `docs/interaction-model.md`. The descriptions
+> below are the web's visual rendering of them, not the contract.
+
 **FAB speed-dial.** A single FAB (primary-container, 56px, bottom-end)
 expands into three mini actions over a 0.32 scrim: **New file**
-(`fab-new-file`), **New draft** (`fab-new-draft`), **Search**
-(`fab-search`). Escape or scrim tap dismisses. The plus icon rotates 45°
+(`fab-new-file`), **New draft** (`fab-new-draft`), **Command**
+(`fab-command`). Escape or scrim tap dismisses. The plus icon rotates 45°
 when open.
 
 **Globals editor.** The top-bar "global" button (`global-open`) switches
-the single editor into "globals mode": it displays `globalsContent` as a
-virtual file, the title reads "Globals", and a back button
-(`globals-close`) returns to the active file. Selecting a sidebar file
-also exits globals mode.
+the single editor's editing target into the `globals` document: the title
+reads "Globals", and a **trailing Close (X)** action (`globals-close`)
+returns to the active file. Selecting a sidebar file also returns to it.
+Globals is never a file-list row — see `docs/interaction-model.md`.
 
 **Drafts.** "New draft" creates an ephemeral scratch file (`draft-N`)
 that lives only in memory: it is never persisted, never appears in the
-sidebar or command palette, and disappears on reload. It exists so a
+sidebar or Command, and disappears on reload. It exists so a
 user can do quick throwaway calculations without polluting the
 workspace.
 
-**Search migration.** Search moved from the top bar into the FAB. The
-command palette remains reachable via Ctrl/Cmd+K.
+**Command migration.** The Command surface (formerly "search" / "command
+palette") is entered from the FAB and via Ctrl/Cmd+K. `search`, `palette`,
+and `command-palette` are forbidden as names for it — see
+`docs/interaction-model.md`.
 
 ---
 
@@ -581,6 +593,11 @@ in-progress text.
 
 ## 13. Adaptive Layout & Android Alignment
 
+> **Chrome vs geometry.** Which affordance is shown, what it does, and how it is
+> exited is normative in `docs/interaction-model.md`. This section owns the
+> geometry: dimension tokens, window-size mapping, hinge/occlusion, and the
+> two-pane split.
+
 This section maps the web's current responsive behavior (the source of
 truth) to the planned Android clients, which must support **phone,
 foldable, and tablet**.
@@ -635,7 +652,7 @@ role *names* and relative sizes are the contract.
   above the **navigation bar / gesture inset** instead of a web status
   bar.
 - Stacking (web reference, §9.1): drawer 3 / backdrop 2, FAB 4, dev
-  overlay 10, command palette 20, snackbar 30.
+  overlay 10, Command 20, snackbar 30.
 - **Foldables:** never place the FAB, snackbar, or any dialog on the fold
   seam. The FAB snaps to the content edge away from the hinge; overlays
   follow the posture rules in §13.6. A separating hinge is a hard margin
@@ -655,7 +672,7 @@ and Android so the editor/eval engine is written once.
 
 ### 13.5 Globals & drafts are unaffected by form factor
 
-- **Globals mode** is a per-surface concern (title swap + back button),
+- **Globals** is a per-surface concern (title swap + trailing Close exit),
   independent of window width.
 - **Drafts** are memory-only scratch buffers with no persistence and no
   list presence on any form factor.
@@ -728,7 +745,7 @@ Folding and unfolding is a configuration change and must not lose work.
 
 | Phase | Adds | Why |
 |---|---|---|
-| 4 (done) | Command palette, FAB, snackbar, globals editor, drafts | Polishes user-facing interaction |
+| 4 (done) | Command, FAB, snackbar, globals editor, drafts | Polishes user-facing interaction |
 | 5 (done) | Android client (Compact/Medium/Expanded) | Align to §13; port the token layer + state model 1:1 |
 | 5b | Foldable support: fold/unfold continuity, posture + occlusion, expanded two-pane split (§13.6–§13.9) | Unfolded foldables are the primary large-screen opportunity |
 
@@ -757,6 +774,11 @@ These show up in PR review as block-level comments:
 The same list applies to the Android client: no hard-coded colors or
 raw `dp`/`sp` outside the token layer; express everything through the
 `--md-sys-*` contract mapped to Android resources.
+
+Navigation has its own forbidden-pattern list in
+`docs/interaction-model.md` §7 (leading-slot exclusivity, non-list editing
+targets, Command naming). Those are enforced by the interaction contract,
+not by this document.
 
 If a forbidden pattern is genuinely the right answer, document it in
 this spec first, then implement.

@@ -134,6 +134,24 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 }
 
+// Room 2.8.5 is compiled against kotlinx-serialization 1.8.1 (its Gradle
+// metadata requires it), and its generated serializers only link against the
+// 1.8.x GeneratedSerializer interface where typeParametersSerializers() is a
+// default method. The Kotlin 2.0.21 serialization plugin still puts 1.7.3 on
+// the processor classpath, where that method is abstract, so Room schema
+// export dies with an AbstractMethodError. Force 1.8.1 across every
+// configuration so the runtime matches what Room was compiled against.
+configurations.all {
+    resolutionStrategy.eachDependency {
+        when (requested.module.toString()) {
+            "org.jetbrains.kotlinx:kotlinx-serialization-json",
+            "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",
+            "org.jetbrains.kotlinx:kotlinx-serialization-core",
+            "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" -> useVersion("1.8.1")
+        }
+    }
+}
+
 // Export Room schemas so migration tests can validate them (issue #9).
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")

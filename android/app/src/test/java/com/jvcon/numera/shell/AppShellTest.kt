@@ -30,10 +30,13 @@ import org.robolectric.annotation.GraphicsMode
  * S4 Compose UI tests for the responsive shell (issue #12).
  *
  * The window layout is injected, so Compact / Expanded / hinge postures are
- * exercised deterministically without a real window.
+ * exercised deterministically without a real window. The device is configured at
+ * tablet width so an injected Expanded layout matches a real screen: at
+ * Robolectric's default 320dp the 280dp sidebar starves the editor, clipping its
+ * top-bar actions.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w1000dp-h800dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AppShellTest {
 

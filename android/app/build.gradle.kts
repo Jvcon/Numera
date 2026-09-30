@@ -80,7 +80,13 @@ android {
     sourceSets {
         // Exported Room schemas (schemas/*.json) are visible to local JVM
         // (Robolectric) migration tests as test assets.
-        getByName("test").assets.srcDir("$projectDir/schemas")
+        //
+        // AGP 8.x ignores `getByName("test").assets.srcDir(...)` for unit
+        // tests: there is no `mergeDebugUnitTestAssets` task, and Robolectric
+        // reads from the merged debug assets. Registering the schemas on the
+        // `debug` variant keeps them out of release APKs while still letting
+        // Robolectric find them via `unitTests.isIncludeAndroidResources`.
+        getByName("debug").assets.srcDir("$projectDir/schemas")
     }
 }
 
